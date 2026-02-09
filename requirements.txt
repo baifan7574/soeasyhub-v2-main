@@ -1,0 +1,7 @@
+supabase
+openai
+reportlab
+pypdf2
+playwright
+python-dotenv
+argparse

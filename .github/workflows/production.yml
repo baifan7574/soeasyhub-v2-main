@@ -1,0 +1,51 @@
+name: Matrix Production Factory (SoEasyHub v2)
+
+on:
+  schedule:
+    - cron: "0 */12 * * *" # Every 12 hours
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  produce-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+
+      - name: Run Production Audit (Check Stock)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python production_audit.py
+
+      - name: Run Matrix Reporter (Fill the Shelf)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python matrix_reporter.py --batch 50
+
+      - name: Run Matrix Deployer (Update Sitemap)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python matrix_deployer.py
+
+      - name: Commit & Push Changes
+        run: |
+          git config --global user.name "Matrix Factory Bot"
+          git config --global user.email "bot@soeasyhub.com"
+          git add sitemap.xml
+          git commit -m "Auto-update: Sitemap synced with latest production [skip ci]" || echo "No changes to commit"
+          git push

@@ -1,0 +1,6 @@
+.agent/
+.wrangler/
+__pycache__/
+*.pdf
+.env
+node_modules/
