@@ -10,3 +10,7 @@ SUPABASE_URL = "https://nbfzhxgkfljeuoncujum.supabase.co"
 [[routes]]
 pattern = "soeasyhub.com/*"
 zone_name = "soeasyhub.com"
+
+[[routes]]
+pattern = "www.soeasyhub.com/*"
+zone_name = "soeasyhub.com"
