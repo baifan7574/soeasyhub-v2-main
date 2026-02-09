@@ -1,39 +1,19 @@
 import os
-import json
 from datetime import datetime
 from supabase import create_client, Client
 
-# ================= Matrix Deployer v2.2 (The Fleet Admiral) =================
 BASE_URL = "https://soeasyhub.com"
 
 class MatrixDeployer:
     def __init__(self):
-        self.config = self._load_config()
-        self.supabase: Client = create_client(self.config['url'], self.config['key'])
+        url = os.environ.get('SUPABASE_URL')
+        key = os.environ.get('SUPABASE_KEY')
+        if not url or not key:
+            raise ValueError("Missing SUPABASE environment variables.")
+        self.supabase: Client = create_client(url, key)
+        
         # Detection of root directory for sitemap saving
-        if os.path.exists("template.html"):
-            self.project_root = "."
-        elif os.path.exists("soeasyhub-v2/template.html"):
-            self.project_root = "soeasyhub-v2"
-        else:
-            self.project_root = "."
-
-    def _load_config(self):
-        config = {
-            'url': os.getenv('SUPABASE_URL'),
-            'key': os.getenv('SUPABASE_KEY')
-        }
-        if config['url'] and config['key']: return config
-
-        token_paths = ['.agent/Token..txt', '../.agent/Token..txt', '../../.agent/Token..txt']
-        for tp in token_paths:
-            if os.path.exists(tp):
-                with open(tp, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        if "Project URL:" in line: config['url'] = line.split("URL:")[1].strip()
-                        if "Secret keys:" in line: config['key'] = line.split("keys:")[1].strip()
-                return config
-        return config
+        self.project_root = "." if os.path.exists("template.html") else "soeasyhub-v2"
 
     def generate_sitemap(self):
         print("🌐 [SEO Matrix] Building sitemap.xml...")
@@ -51,7 +31,7 @@ class MatrixDeployer:
         sitemap_path = os.path.join(self.project_root, "sitemap.xml")
         with open(sitemap_path, "w", encoding="utf-8") as f:
             f.write(xml)
-        print(f"   ✅ [SEO] {len(slugs)} URLs added to sitemap at {sitemap_path}")
+        print(f"   ✅ [SEO] {len(slugs)} URLs added to sitemap.")
 
 if __name__ == "__main__":
     MatrixDeployer().generate_sitemap()

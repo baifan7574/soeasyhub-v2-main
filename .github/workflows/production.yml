@@ -4,9 +4,7 @@ on:
   push:
     branches:
       - main
-  schedule:
-    - cron: "0 */12 * * *" # Every 12 hours
-  workflow_dispatch: # Manual trigger
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -26,7 +24,6 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install -r requirements.txt
-          playwright install chromium
 
       - name: Phase 0 Production Audit
         env:
@@ -41,20 +38,23 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: python matrix_refiner.py
 
-      - name: Phase 4 Matrix Composer
+      - name: Phase 4 Matrix Composer (Single Target Validation)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        run: python matrix_composer.py --batch 10
+        run: |
+          # Targeting specific slug to ensure speed and focus
+          python matrix_composer.py --slug california-electrician-reciprocity
 
-      - name: Phase 5 Matrix Reporter
+      - name: Phase 5 Matrix Reporter (Single Target Validation)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: python matrix_reporter.py --batch 10
+        run: |
+          python matrix_reporter.py --slug california-electrician-reciprocity
 
       - name: Phase 6 Matrix Deployer
         env:
@@ -67,7 +67,7 @@ jobs:
           git config --global user.name "Matrix Factory Bot"
           git config --global user.email "bot@soeasyhub.com"
           git add .
-          git commit -m "Auto-update Factory Assets [skip ci]" || echo "No changes to commit"
+          git commit -m "Auto-update: Single Point Validation Success [skip ci]" || echo "No changes to commit"
           git push
 
   deploy-worker:
