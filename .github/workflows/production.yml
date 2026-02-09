@@ -49,6 +49,18 @@ jobs:
         run: |
           git config --global user.name "Matrix Factory Bot"
           git config --global user.email "bot@soeasyhub.com"
-          git add sitemap.xml
-          git commit -m "Auto-update: Sitemap synced with latest production [skip ci]" || echo "No changes to commit"
+          git add .
+          git commit -m "Auto-update: Factory Assets & Worker Fixed [skip ci]" || echo "No changes to commit"
           git push
+
+  deploy-worker:
+    runs-on: ubuntu-latest
+    needs: produce-assets
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: "soeasyhub-v2"
