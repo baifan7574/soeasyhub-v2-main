@@ -2,8 +2,6 @@ name = "soeasyhub-v2"
 main = "worker.js"
 compatibility_date = "2024-04-03"
 
-[site]
-bucket = "./" # Local folder to upload
 
 [vars]
 SUPABASE_URL = "https://nbfzhxgkfljeuoncujum.supabase.co"
