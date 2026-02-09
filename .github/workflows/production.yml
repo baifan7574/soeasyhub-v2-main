@@ -25,21 +25,35 @@ jobs:
           pip install -r requirements.txt
           playwright install chromium
 
-      - name: Run Production Audit (Check Stock)
+      - name: Phase 0: Production Audit
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python production_audit.py
 
-      - name: Run Matrix Reporter (Fill the Shelf)
+      - name: Phase 3: Matrix Refiner (Data Extraction)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: python matrix_refiner.py
+
+      - name: Phase 4: Matrix Composer (Article Generation)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: python matrix_reporter.py --batch 50
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: python matrix_composer.py --batch 10
 
-      - name: Run Matrix Deployer (Update Sitemap)
+      - name: Phase 5: Matrix Reporter (PDF Generation)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python matrix_reporter.py --batch 10
+
+      - name: Phase 6: Matrix Deployer (Sitemap & Git Sync)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -50,7 +64,7 @@ jobs:
           git config --global user.name "Matrix Factory Bot"
           git config --global user.email "bot@soeasyhub.com"
           git add .
-          git commit -m "Auto-update: Factory Assets & Worker Fixed [skip ci]" || echo "No changes to commit"
+          git commit -m "Auto-update: Factory Assets & Worker Content [skip ci]" || echo "No changes to commit"
           git push
 
   deploy-worker:

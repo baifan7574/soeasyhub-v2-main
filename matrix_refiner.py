@@ -6,8 +6,7 @@ import requests
 from openai import OpenAI
 from supabase import create_client, Client
 
-# ================= Configuration =================
-TOKEN_FILE = os.path.join(".agent", "Token..txt")
+# ================= Matrix Refiner (Script 3) =================
 STORAGE_BUCKET = "raw-handbooks"
 
 class MatrixRefiner:
@@ -17,41 +16,44 @@ class MatrixRefiner:
         
         self.ds_key = self.config.get('ds_key')
         if not self.ds_key:
-            raise ValueError("❌ Missing DeepSeek API Key in Token file.")
+            raise ValueError("❌ Missing DeepSeek API Key (DSAPI or DEEPSEEK_API_KEY).")
             
         self.client = OpenAI(api_key=self.ds_key, base_url="https://api.deepseek.com")
         print("🏭 Refinery Online.")
 
     def _load_config(self):
-        config = {}
-        if not os.path.exists(TOKEN_FILE):
-             abs_path = r"d:\quicktoolshub\rader\美国跨州合规报告\.agent\Token..txt"
-             if os.path.exists(abs_path):
-                 token_path = abs_path
-             else:
-                 raise FileNotFoundError(f"Critical: {TOKEN_FILE} not found.")
-        else:
-             token_path = TOKEN_FILE
+        config = {
+            'url': os.getenv('SUPABASE_URL'),
+            'key': os.getenv('SUPABASE_KEY'),
+            'ds_key': os.getenv('DEEPSEEK_API_KEY') or os.getenv('DSAPI')
+        }
+        
+        if config['url'] and config['key'] and config['ds_key']:
+            print("✅ Environment Variables LOADED.")
+            return config
 
-        with open(token_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line: continue
-                if "Project URL:" in line:
-                    config['url'] = line.split("Project URL:")[1].strip()
-                if "Secret keys:" in line:
-                    config['key'] = line.split("Secret keys:")[1].strip()
-                if "DSAPI:" in line:
-                    config['ds_key'] = line.split("DSAPI:")[1].strip()
+        token_paths = [
+            '.agent/Token..txt',
+            '../.agent/Token..txt',
+            '../../.agent/Token..txt'
+        ]
+        
+        for tp in token_paths:
+            if os.path.exists(tp):
+                try:
+                    with open(tp, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            if "Project URL:" in line: config['url'] = line.split("URL:")[1].strip()
+                            if "Secret keys:" in line: config['key'] = line.split("keys:")[1].strip()
+                            if "DSAPI:" in line: config['ds_key'] = line.split("DSAPI:")[1].strip()
+                    print(f"✅ Loaded from {tp}")
+                    return config
+                except: pass
         return config
 
     def fetch_unrefined_records(self):
-        """Fetch records that are downloaded but have no content_json"""
         print("📊 Fetching unrefined records...")
         try:
-            # Also exclude failed refinements to avoid dead loop
-            # Check if is_refined is False? Schema has is_refined default false.
-            # We filter: is_downloaded=True AND content_json is NULL
             res = self.supabase.table("grich_keywords_pool")\
                 .select("*")\
                 .eq("is_downloaded", True)\
@@ -77,42 +79,33 @@ class MatrixRefiner:
 
     def extract_high_value_text(self, pdf_path):
         keywords = ["fee", "cost", "price", "requirement", "checklist", "application", "process", "reciprocity", "endorsement", "exam", "grade"]
-        
         extracted_text = ""
-        total_pages = 0
-        read_pages = 0
-        
         try:
             with pdfplumber.open(pdf_path) as pdf:
                 total_pages = len(pdf.pages)
+                read_pages = 0
                 for i, page in enumerate(pdf.pages):
                     text = page.extract_text() or ""
                     text_lower = text.lower()
                     if i < 3 or any(k in text_lower for k in keywords):
                         extracted_text += f"\n--- Page {i+1} ---\n{text}"
                         read_pages += 1
-                    
-            print(f"   📄 Extracted {read_pages}/{total_pages} pages.")
-            if not extracted_text.strip():
-                 return None
-            return extracted_text
+                print(f"   📄 Extracted {read_pages}/{total_pages} pages.")
+            return extracted_text if extracted_text.strip() else None
         except Exception as e:
             print(f"   ❌ PDF Extraction Error: {e}")
             return None
 
     def refine_with_deepseek(self, raw_text):
         prompt = """
-        You are a Professional License Compliance Analyst.
-        Extract structured data from the text.
-        Output strictly in JSON format with these keys:
-        - "application_fee": (string, specific dollar amount)
+        Extract structured data into JSON:
+        - "application_fee": (string)
         - "processing_time": (string)
-        - "requirements": (array of strings)
-        - "steps": (array of strings)
-        - "evidence": (string, direct quote supporting the fee/logic)
+        - "requirements": (array)
+        - "steps": (array)
+        - "evidence": (string, quote)
         
-        Output only JSON.
-        
+        Strict JSON only.
         --- Content ---
         """ + raw_text[:20000]
         
@@ -120,17 +113,15 @@ class MatrixRefiner:
             response = self.client.chat.completions.create(
                 model="deepseek-chat",
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant that outputs strict JSON."},
+                    {"role": "system", "content": "JSON assistant."},
                     {"role": "user", "content": prompt},
-                ],
-                stream=False
+                ]
             )
             content = response.choices[0].message.content
-            if "```json" in content:
-                content = content.replace("```json", "").replace("```", "")
+            if "```json" in content: content = content.replace("```json", "").replace("```", "")
             return content.strip()
         except Exception as e:
-            print(f"   ❌ DeepSeek API Error: {e}")
+            print(f"   ❌ API Error: {e}")
             return None
 
     def update_db(self, record_id, json_data):
@@ -140,73 +131,26 @@ class MatrixRefiner:
                 "content_json": parsed,
                 "is_refined": True
             }).eq("id", record_id).execute()
-            print("   ✅ Database Updated.")
-        except json.JSONDecodeError:
-            print("   ❌ Failed to parse JSON.")
-            # Mark as refined but with error so we don't loop
+            print("   ✅ DB Updated.")
+        except:
             self.supabase.table("grich_keywords_pool").update({
-                "content_json": {"error": "json_parse_failed"},
+                "content_json": {"error": "parse_failed"},
                 "is_refined": True
             }).eq("id", record_id).execute()
 
-    def mark_failed_refine(self, record_id, reason):
-        # Update content_json with error to stop loop
-        print(f"   ⚠️ Marking as failed: {reason}")
-        self.supabase.table("grich_keywords_pool").update({
-            "content_json": {"error": reason},
-            "is_refined": True # Mark refined so we don't retry same bad file
-        }).eq("id", record_id).execute()
-
     def run_batch(self):
         records = self.fetch_unrefined_records()
-        if not records:
-            print("💤 No unrefined records found.")
-            return
-
-        print(f"🚀 Processing {len(records)} records...")
-        failures = []
-        
+        if not records: return print("💤 No work.")
         for record in records:
-            slug = record['slug']
-            rid = record['id']
-            print(f"\n🔨 Refining: {slug}")
-            
-            # 1. Download
+            rid, slug = record['id'], record['slug']
+            print(f"🔨 Refining: {slug}")
             pdf_path = self.download_pdf(slug)
-            if not pdf_path: 
-                self.mark_failed_refine(rid, "storage_download_failed")
-                failures.append(slug)
-                continue
-            
-            # 2. Extract
-            text = self.extract_high_value_text(pdf_path)
-            if not text:
-                print("   ⚠️ Empty text or scan.")
-                self.mark_failed_refine(rid, "empty_text_or_scan")
-                failures.append(slug)
-                if os.path.exists(pdf_path): os.remove(pdf_path)
-                continue
-            
-            # 3. Refine
-            json_result = self.refine_with_deepseek(text)
-            
-            # 4. Update
-            if json_result:
-                self.update_db(rid, json_result)
-            else:
-                self.mark_failed_refine(rid, "deepseek_failed")
-                failures.append(slug)
-            
-            if os.path.exists(pdf_path):
+            if pdf_path:
+                text = self.extract_high_value_text(pdf_path)
+                if text:
+                    res = self.refine_with_deepseek(text)
+                    if res: self.update_db(rid, res)
                 os.remove(pdf_path)
-            
-            time.sleep(1)
-            
-        if failures:
-            print("\n⚠️ Failure Report (Saved to DB as errors):")
-            for f in failures:
-                print(f"   - {f}")
 
 if __name__ == "__main__":
-    refiner = MatrixRefiner()
-    refiner.run_batch()
+    MatrixRefiner().run_batch()
