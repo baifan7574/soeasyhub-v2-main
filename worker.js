@@ -25,10 +25,13 @@ export default {
                 let html = await indexRes.text();
 
                 // Fetch latest 10 refined records from Supabase
-                const sb_res = await fetch(`${SB_URL}/rest/v1/grich_keywords_pool?is_refined=eq.true&select=slug,keyword,created_at&order=created_at.desc&limit=10`, {
+                const sb_res = await fetch(`${SB_URL}/rest/v1/grich_keywords_pool?is_refined=eq.true&select=slug,keyword,last_mined_at&order=last_mined_at.desc&limit=10`, {
                     headers: { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}` }
                 });
-                if (!sb_res.ok) throw new Error("Supabase Fetch Failed (Home)");
+                if (!sb_res.ok) {
+                    const errBody = await sb_res.text();
+                    throw new Error(`Supabase Fetch Failed (Home) | Status: ${sb_res.status} ${sb_res.statusText} | Body: ${errBody}`);
+                }
                 const records = await sb_res.json();
 
                 let gridHtml = '';
@@ -53,7 +56,10 @@ export default {
                 const sb_res = await fetch(`${SB_URL}/rest/v1/grich_keywords_pool?slug=eq.${slug}&select=*`, {
                     headers: { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}` }
                 });
-                if (!sb_res.ok) throw new Error("Supabase Fetch Failed (Detail)");
+                if (!sb_res.ok) {
+                    const errBody = await sb_res.text();
+                    throw new Error(`Supabase Fetch Failed (Detail) | Status: ${sb_res.status} ${sb_res.statusText} | Body: ${errBody}`);
+                }
                 const data = await sb_res.json();
 
                 if (!data || data.length === 0) return new Response("Audit Location Not Found", { status: 404 });

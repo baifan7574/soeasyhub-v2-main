@@ -1,6 +1,9 @@
 name: Matrix Production Factory (SoEasyHub v2)
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: "0 */12 * * *" # Every 12 hours
   workflow_dispatch: # Manual trigger
