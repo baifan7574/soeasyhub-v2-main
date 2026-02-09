@@ -9,8 +9,8 @@ from supabase import create_client, Client
 # Logic: DB Sync -> Sitemap -> PDF Batching -> Git Push -> Cloudflare
 # ===========================================================================
 
-TOKEN_FILE = os.path.join(os.path.dirname(__file__), "..", ".agent", "Token..txt")
-PROJECT_DIR = "."
+TOKEN_FILE = os.path.join(".agent", "Token..txt")
+PROJECT_DIR = "soeasyhub-v2"
 BASE_URL = "https://soeasyhub.com"
 
 class MatrixDeployer:

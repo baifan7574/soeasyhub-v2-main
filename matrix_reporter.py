@@ -19,7 +19,7 @@ from reportlab.lib.units import inch
 # Mission: Automatic Batch Generation of Premium PDF Audit Reports.
 # Standards: Holy Bible SKILL.md v2.0 (Legal, Financial, SOP, Insider Insights).
 
-TOKEN_FILE = os.path.join(os.path.dirname(__file__), "..", ".agent", "Token..txt")
+TOKEN_FILE = os.path.join(".agent", "Token..txt")
 
 class MatrixReporter:
     def __init__(self):
@@ -60,10 +60,11 @@ class MatrixReporter:
         return res.data[0] if res.data else None
 
     def fetch_unreported_records(self, limit=10):
-        # Fetching records that are refined
+        # Fetching records that are refined but have NO pdf_url yet (The "Fill the Shelf" logic)
         res = self.supabase.table("grich_keywords_pool")\
             .select("*")\
             .eq("is_refined", True)\
+            .is_("pdf_url", "null")\
             .limit(limit)\
             .execute()
         return res.data
@@ -220,23 +221,8 @@ class MatrixReporter:
         print(f"   ☁️ [Cloud] Syncing {slug} to Supabase Storage...")
         cloud_url = self.upload_to_cloud(filepath, slug)
         if cloud_url:
-            try:
-                # 1. Primary: Try to update dedicated column
-                self.supabase.table("grich_keywords_pool").update({"pdf_url": cloud_url}).eq("id", record_id).execute()
-                print(f"   ✨ [DB] Field pdf_url updated.")
-            except Exception as db_err:
-                # 2. Fallback: Inject into content_json if column missing
-                print(f"   ⚠️ Column pdf_url missing. Injecting into content_json fallback...")
-                try:
-                    res = self.supabase.table("grich_keywords_pool").select("content_json").eq("id", record_id).execute()
-                    if res.data:
-                        current_json = res.data[0].get('content_json', {})
-                        current_json['pdf_url_cloud'] = cloud_url
-                        self.supabase.table("grich_keywords_pool").update({"content_json": current_json}).eq("id", record_id).execute()
-                        print(f"   ✨ [DB] Fallback: Injected into content_json.")
-                except Exception as e2:
-                    print(f"   ❌ Final Fallback Failed: {e2}")
-            
+            self.supabase.table("grich_keywords_pool").update({"pdf_url": cloud_url}).eq("id", record_id).execute()
+            print(f"   ✨ [Success] Public Link: {cloud_url}")
             # --- LOCAL CLEANUP ---
             os.remove(filepath)
             print("   🗑️ [Cleanup] Local binary removed.")

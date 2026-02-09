@@ -10,7 +10,7 @@ from supabase import create_client, Client
 # Status: Final Revision (Aligns with SKILL.md)
 # Features: Persona Rotation, Anti-N/A Logic, Double CTA, Internal Siloing.
 
-TOKEN_FILE = os.path.join(os.path.dirname(__file__), "..", ".agent", "Token..txt")
+TOKEN_FILE = os.path.join(".agent", "Token..txt")
 
 class MatrixComposer:
     def __init__(self):
