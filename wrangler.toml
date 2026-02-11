@@ -1,7 +1,7 @@
 name = "soeasyhub-v2"
 main = "worker.js"
 compatibility_date = "2024-04-03"
-
+account_id = "c70f291b77fbc02a6f2090ebe4abdd44"
 
 [vars]
 SUPABASE_URL = "https://nbfzhxgkfljeuoncujum.supabase.co"
@@ -9,8 +9,8 @@ SUPABASE_URL = "https://nbfzhxgkfljeuoncujum.supabase.co"
 # Route to intercept soeasyhub.com traffic
 [[routes]]
 pattern = "soeasyhub.com/*"
-zone_name = "soeasyhub.com"
+zone_id = "8a616a9b04d8160cba0765f98318a4cc"
 
 [[routes]]
 pattern = "www.soeasyhub.com/*"
-zone_name = "soeasyhub.com"
+zone_id = "8a616a9b04d8160cba0765f98318a4cc"
