@@ -52,7 +52,7 @@ class MatrixReporter:
             print(f"   ❌ AI Generation Failed: {e}")
             return None
 
-    def upload_to_cloud(self, local_path, slug):
+    def upload_to_cloud(self, local_path, slug, record_id=None):
         # The worker.js expects: Audit_{slug}.pdf
         file_name = f"Audit_{slug}.pdf"
         try:
@@ -61,19 +61,25 @@ class MatrixReporter:
                     file_name, f, {"content-type": "application/pdf", "x-upsert": "true"}
                 )
             print(f"   ✨ [Cloud] Uploaded as {file_name}")
+            # Write back pdf_url to database
+            sb_url = os.environ.get('SUPABASE_URL', '')
+            cloud_url = f"{sb_url}/storage/v1/object/public/audit-reports/{file_name}"
+            if record_id:
+                self.supabase.table("grich_keywords_pool").update({"pdf_url": cloud_url}).eq("id", record_id).execute()
+                print(f"   📝 [DB] pdf_url saved.")
             return True
         except Exception as e:
             print(f"   ❌ Cloud Upload Failed: {e}")
             return False
 
-    def render_pdf(self, audit_text, slug, keyword):
+    def render_pdf(self, audit_text, slug, keyword, record_id=None):
         filename = f"tmp_Audit_{slug}.pdf"
         doc = SimpleDocTemplate(filename, pagesize=A4)
         styles = getSampleStyleSheet()
         story = [Paragraph(f"2026 OFFICIAL AUDIT: {keyword}", styles['Title']), Paragraph(audit_text, styles['Normal'])]
         doc.build(story)
         
-        success = self.upload_to_cloud(filename, slug)
+        success = self.upload_to_cloud(filename, slug, record_id)
         if os.path.exists(filename):
             os.remove(filename)
         return success
@@ -84,7 +90,7 @@ class MatrixReporter:
         for r in records:
             print(f"📄 Auditing: {r['slug']}")
             logic = self.generate_audit_logic(r)
-            if logic: self.render_pdf(logic, r['slug'], r['keyword'])
+            if logic: self.render_pdf(logic, r['slug'], r['keyword'], r['id'])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -96,6 +102,6 @@ if __name__ == "__main__":
         r = reporter.fetch_refined_data(args.slug)
         if r:
             logic = reporter.generate_audit_logic(r)
-            if logic: reporter.render_pdf(logic, r['slug'], r['keyword'])
+            if logic: reporter.render_pdf(logic, r['slug'], r['keyword'], r['id'])
     else:
         reporter.process_all(limit=args.batch)
