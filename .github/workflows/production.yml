@@ -27,7 +27,7 @@ jobs:
           playwright install chromium
 
       - name: Phase 0 Production Audit
-        run: python matrix_audit.py --mode production
+        run: python production_audit.py
 
       - name: Phase 3 Matrix Refiner
         run: python matrix_refiner.py --batch 50
