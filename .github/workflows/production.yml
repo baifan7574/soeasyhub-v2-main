@@ -27,6 +27,9 @@ jobs:
           playwright install chromium
 
       - name: Phase 0 Production Audit
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python production_audit.py
 
       - name: Phase 3 Matrix Refiner
