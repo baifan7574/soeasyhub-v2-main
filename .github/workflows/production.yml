@@ -79,5 +79,10 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          preCommands: |
+            echo "--- Diagnosing Token ---"
+            wrangler whoami
+            echo "--- Deploying Worker ---"
+          command: deploy --var SUPABASE_KEY:${{ secrets.SUPABASE_KEY }}
         env:
           WRANGLER_LOG: debug
