@@ -1,7 +1,40 @@
 /**
- * soeasyhub-v2 Cloudflare Worker (Production Grade - V2.1)
+ * soeasyhub-v2 Cloudflare Worker (Production Grade - V2.2)
  * Mission: Zero-Server Dynamic Orchestration with Loop Prevention
  */
+
+// Lightweight Markdown → HTML converter (runs in Worker)
+function markdownToHtml(md) {
+    if (!md) return '';
+    // If content already looks like HTML, return as-is
+    if (md.trim().startsWith('<')) return md;
+
+    let html = md;
+    // Headers: ### → h3, ## → h2, # → h1 (order matters: longest first)
+    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+    // Bold: **text** → <strong>text</strong>
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Italic: *text* → <em>text</em>
+    html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+    // Links: [text](url) → <a href="url">text</a>
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#f97316;font-weight:bold;text-decoration:none;">$1</a>');
+    // Unordered lists: - item → <li>item</li>
+    html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+    // Paragraphs: double newlines → <p> blocks
+    html = html.replace(/\n{2,}/g, '</p><p>');
+    html = '<p>' + html + '</p>';
+    // Clean up empty <p> tags and fix nested issues
+    html = html.replace(/<p>\s*<(h[1-3]|ul|li)/g, '<$1');
+    html = html.replace(/<\/(h[1-3]|ul|li)>\s*<\/p>/g, '</$1>');
+    html = html.replace(/<p>\s*<\/p>/g, '');
+    // Unescape JSON-escaped quotes
+    html = html.replace(/\\"/g, '"');
+
+    return html;
+}
 
 export default {
     async fetch(request, env) {
@@ -65,7 +98,7 @@ export default {
                 if (!data || data.length === 0) return new Response("Audit Location Not Found", { status: 404 });
 
                 const record = data[0];
-                const article = record.final_article || "<h1>Audit Under Construction...</h1><p>Our auditors are currently processing this request. Estimate: 5 minutes.</p>";
+                const article = markdownToHtml(record.final_article) || "<h1>Audit Under Construction...</h1><p>Our auditors are currently processing this request. Estimate: 5 minutes.</p>";
                 const title = record.keyword || "Compliance Audit";
 
                 // Robust PDF Extraction
