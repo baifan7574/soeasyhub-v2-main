@@ -23,29 +23,27 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install -r requirements.txt
+          pip install supabase openai reportlab pypdf2 playwright python-dotenv argparse pdfplumber requests urllib3 markdown
+          playwright install chromium
 
       - name: Phase 0 Production Audit
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python production_audit.py
+        run: python matrix_audit.py --mode production
 
       - name: Phase 3 Matrix Refiner
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        run: python matrix_refiner.py
-
-      - name: Phase 4 Matrix Composer (Full Coverage)
+        run: python matrix_refiner.py --batch 50
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+      - name: Phase 4 Matrix Composer (Force Full HTML Coverage)
+        # Force overwrite all 130 records with proper HTML
+        run: python matrix_composer.py --batch 150 --force
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        run: |
-          python matrix_composer.py --batch 130 --force
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
       - name: Phase 5 Matrix Reporter (Full Batch PDF)
         env:
