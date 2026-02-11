@@ -36,39 +36,53 @@ class MatrixReporter:
             .execute()
         return res.data
 
-    def generate_audit_logic(self, record):
+    def generate_audit_logic(self, record, retries=3):
         keyword, data = record['keyword'], record['content_json']
         prompt = f"Summarize licensing logic for {keyword} into bullet points: {json.dumps(data)}"
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "system", "content": "Professional Auditor."},
-                          {"role": "user", "content": prompt}]
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            print(f"   ❌ AI Generation Failed: {e}")
-            return None
-
-    def upload_to_cloud(self, local_path, slug, record_id=None):
-        # The worker.js expects: Audit_{slug}.pdf
-        file_name = f"Audit_{slug}.pdf"
-        try:
-            with open(local_path, "rb") as f:
-                self.supabase.storage.from_("audit-reports").upload(
-                    file_name, f, {"content-type": "application/pdf", "x-upsert": "true"}
+        for attempt in range(retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "system", "content": "Professional Auditor."},
+                              {"role": "user", "content": prompt}],
+                    timeout=30
                 )
-            print(f"   ✨ [Cloud] Uploaded as {file_name}")
-            # Write back pdf_url to database
-            sb_url = os.environ.get('SUPABASE_URL', '')
-            cloud_url = f"{sb_url}/storage/v1/object/public/audit-reports/{file_name}"
-            if record_id:
-                self.supabase.table("grich_keywords_pool").update({"pdf_url": cloud_url}).eq("id", record_id).execute()
-                print(f"   📝 [DB] pdf_url saved.")
-            return True
-        except Exception as e:
-            print(f"   ❌ Cloud Upload Failed: {e}")
-            return False
+                return response.choices[0].message.content
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "rate" in err_str.lower():
+                    wait = 15 * (attempt + 1)
+                    print(f"   ⏳ Rate limited. Waiting {wait}s... (attempt {attempt+1}/{retries})")
+                    time.sleep(wait)
+                elif attempt < retries - 1:
+                    print(f"   ⚠️ AI Error (attempt {attempt+1}/{retries}): {e}. Retrying in 5s...")
+                    time.sleep(5)
+                else:
+                    print(f"   ❌ AI Generation Failed after {retries} attempts: {e}")
+                    return None
+
+    def upload_to_cloud(self, local_path, slug, record_id=None, retries=2):
+        file_name = f"Audit_{slug}.pdf"
+        for attempt in range(retries):
+            try:
+                with open(local_path, "rb") as f:
+                    self.supabase.storage.from_("audit-reports").upload(
+                        file_name, f, {"content-type": "application/pdf", "x-upsert": "true"}
+                    )
+                print(f"   ✨ [Cloud] Uploaded as {file_name}")
+                sb_url = os.environ.get('SUPABASE_URL', '')
+                cloud_url = f"{sb_url}/storage/v1/object/public/audit-reports/{file_name}"
+                if record_id:
+                    self.supabase.table("grich_keywords_pool").update({"pdf_url": cloud_url}).eq("id", record_id).execute()
+                    print(f"   📝 [DB] pdf_url saved.")
+                return True
+            except Exception as e:
+                if attempt < retries - 1:
+                    print(f"   ⚠️ Upload Error (attempt {attempt+1}/{retries}): {e}. Retrying in 3s...")
+                    time.sleep(3)
+                else:
+                    print(f"   ❌ Cloud Upload Failed after {retries} attempts: {e}")
+                    return False
 
     def render_pdf(self, audit_text, slug, keyword, record_id=None):
         filename = f"tmp_Audit_{slug}.pdf"
@@ -84,11 +98,38 @@ class MatrixReporter:
 
     def process_all(self, limit=5):
         records = self.fetch_unreported_records(limit)
-        if not records: return print("💤 No work.")
-        for r in records:
-            print(f"📄 Auditing: {r['slug']}")
+        total = len(records)
+        if not records:
+            print("💤 No unreported records found. All PDFs may already be generated!")
+            return
+        
+        print(f"\n📋 Found {total} records without PDF. Starting batch generation...\n")
+        
+        success_count = 0
+        fail_count = 0
+        
+        for i, r in enumerate(records, 1):
+            print(f"[{i}/{total}] 📄 Auditing: {r['slug']}")
             logic = self.generate_audit_logic(r)
-            if logic: self.render_pdf(logic, r['slug'], r['keyword'], r['id'])
+            if logic:
+                ok = self.render_pdf(logic, r['slug'], r['keyword'], r['id'])
+                if ok:
+                    success_count += 1
+                else:
+                    fail_count += 1
+            else:
+                fail_count += 1
+            
+            # Rate limit protection: pause every 5 records
+            if i % 5 == 0 and i < total:
+                print(f"   ⏸️ Batch checkpoint: {success_count} success, {fail_count} failed. Pausing 3s...")
+                time.sleep(3)
+        
+        print(f"\n{'='*50}")
+        print(f"📊 BATCH COMPLETE: {success_count}/{total} PDFs generated successfully.")
+        print(f"   ✅ Success: {success_count}")
+        print(f"   ❌ Failed: {fail_count}")
+        print(f"{'='*50}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -103,3 +144,4 @@ if __name__ == "__main__":
             if logic: reporter.render_pdf(logic, r['slug'], r['keyword'], r['id'])
     else:
         reporter.process_all(limit=args.batch)
+
