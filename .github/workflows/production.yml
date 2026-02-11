@@ -78,11 +78,13 @@ jobs:
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Using Global API Key via env vars instead of Token
           preCommands: |
-            echo "--- Diagnosing Token ---"
+            echo "--- Diagnosing Auth ---"
             wrangler whoami
             echo "--- Deploying Worker ---"
           command: deploy --var SUPABASE_KEY:${{ secrets.SUPABASE_KEY }}
         env:
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           WRANGLER_LOG: debug
