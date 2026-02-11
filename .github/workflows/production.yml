@@ -87,4 +87,5 @@ jobs:
         env:
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          # Trigger Run #17 with Global Key
           WRANGLER_LOG: debug
