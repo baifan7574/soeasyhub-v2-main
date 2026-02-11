@@ -36,10 +36,12 @@ class MatrixComposer:
             "Specialized Compliance Expert"
         ]
 
-    def fetch_records(self, target_slug=None, limit=5):
+    def fetch_records(self, target_slug=None, limit=5, force=False):
         query = self.supabase.table("grich_keywords_pool").select("*")
         if target_slug:
             res = query.eq("slug", target_slug).execute()
+        elif force:
+            res = query.not_.is_("content_json", "null").eq("is_refined", True).limit(limit).execute()
         else:
             res = query.not_.is_("content_json", "null").is_("final_article", "null").limit(limit).execute()
         return res.data
@@ -78,8 +80,8 @@ class MatrixComposer:
             print(f"   ❌ Compose Error: {e}")
             return None
 
-    def run(self, target_slug=None, batch_size=5):
-        records = self.fetch_records(target_slug, batch_size)
+    def run(self, target_slug=None, batch_size=5, force=False):
+        records = self.fetch_records(target_slug, batch_size, force)
         if not records:
             print("💤 No pending articles.")
             return
@@ -95,5 +97,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--slug", help="Process single record")
     parser.add_argument("--batch", type=int, default=1, help="Number of records")
+    parser.add_argument("--force", action="store_true", help="Force overwrite existing articles")
     args = parser.parse_args()
-    MatrixComposer().run(target_slug=args.slug, batch_size=args.batch)
+    composer = MatrixComposer()
+    composer.run(target_slug=args.slug, batch_size=args.batch, force=args.force)

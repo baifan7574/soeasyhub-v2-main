@@ -28,12 +28,10 @@ class MatrixReporter:
         return res.data[0] if res.data else None
 
     def fetch_unreported_records(self, limit=10):
-        # We fetch records that are refined but might not have been audited yet.
-        # Since we removed pdf_url column, we just filter by is_refined=True
-        # We can use a different marker or just run specifically for one slug.
         res = self.supabase.table("grich_keywords_pool")\
             .select("*")\
             .eq("is_refined", True)\
+            .is_("pdf_url", "null")\
             .limit(limit)\
             .execute()
         return res.data
