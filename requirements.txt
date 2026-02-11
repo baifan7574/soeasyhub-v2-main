@@ -8,3 +8,4 @@ argparse
 pdfplumber
 requests
 urllib3
+markdown

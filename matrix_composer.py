@@ -3,6 +3,7 @@ import json
 import time
 import argparse
 import random
+import markdown  # New dependency
 from openai import OpenAI
 from supabase import create_client, Client
 
@@ -38,12 +39,19 @@ class MatrixComposer:
 
     def fetch_records(self, target_slug=None, limit=5, force=False):
         query = self.supabase.table("grich_keywords_pool").select("*")
+        print(f"DEBUG: Fetching records... Target={target_slug}, Limit={limit}, Force={force}")
+        
         if target_slug:
             res = query.eq("slug", target_slug).execute()
         elif force:
+            # Force: fetch any refined record, even if it has an article (to overwrite)
+            # Use order by random or simply by ID to ensure we scan through
             res = query.not_.is_("content_json", "null").eq("is_refined", True).limit(limit).execute()
         else:
+            # Normal: only fetch where final_article is null
             res = query.not_.is_("content_json", "null").is_("final_article", "null").limit(limit).execute()
+            
+        print(f"DEBUG: Retrieved {len(res.data) if res.data else 0} records.")
         return res.data
 
     def compose(self, record):
@@ -62,6 +70,7 @@ class MatrixComposer:
         Persona: {persona}. Topic: {keyword}. 
         Data: {json.dumps(data)}.
         Output raw HTML only. Use <h1>, <h2>, <p>, <ul>, <table>.
+        Start directly with <h1>Title</h1> or relevant HTML tags. Do NOT use Markdown formatting like **bold** or # Header.
         Insert this CTA exactly twice (at 30% and 90%):
         {BUY_BUTTON}
         """
@@ -70,12 +79,29 @@ class MatrixComposer:
             print(f"   🧠 Writing: {keyword}")
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "system", "content": "Professional SEO HTML Writer."},
+                messages=[{"role": "system", "content": "Professional SEO HTML Writer. Output raw HTML only. No Markdown."},
                           {"role": "user", "content": prompt}]
             )
             content = response.choices[0].message.content
-            if "```html" in content: content = content.replace("```html", "").replace("```", "")
-            return content.strip()
+            
+            # 1. Strip code block markers
+            if "```html" in content: 
+                content = content.replace("```html", "").replace("```", "")
+            
+            content = content.strip()
+
+            # 2. Check and Convert Markdown if detected
+            # If content starts with '#' or contains '**', assume Markdown and convert
+            if content.startswith("#") or "**" in content:
+                print(f"   ⚠️ Markdown detected. Converting to HTML...")
+                content = markdown.markdown(content)
+            
+            # 3. Ensure HTML structure (basic check)
+            if not content.startswith("<"):
+                # Fallback: wrap in <p> or just trust markdown conversion
+                pass 
+
+            return content
         except Exception as e:
             print(f"   ❌ Compose Error: {e}")
             return None
@@ -91,7 +117,7 @@ class MatrixComposer:
             article = self.compose(r)
             if article:
                 self.supabase.table("grich_keywords_pool").update({"final_article": article}).eq("id", r['id']).execute()
-                print(f"   ✅ Article Saved.")
+                print(f"   ✅ Article Saved (HTML size: {len(article)} chars).")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
