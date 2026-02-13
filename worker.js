@@ -1,10 +1,10 @@
 /**
- * soeasyhub-v2 Cloudflare Worker (Production Grade - V2.3)
+ * soeasyhub-v2 Cloudflare Worker (Production Grade - V2.4)
  * Mission: Zero-Server Dynamic Orchestration with Loop Prevention
- * Skills: 06-grich-deployer (Skill 2, 3, 4, 5, 7)
+ * Skills: 06-grich-deployer (Skill 2, 3, 4, 5, 7) + 04-grich-mixer (Skill 4 Patch)
  */
 
-// Lightweight Markdown → HTML converter (runs in Worker)
+// Lightweight Markdown  HTML converter (runs in Worker)
 function markdownToHtml(md) {
     if (!md) return '';
     // If content already looks like HTML, return as-is
@@ -84,7 +84,7 @@ export default {
                 });
 
                 html = html.replace("<!-- DYNAMIC_GRID -->", gridHtml);
-                html = html.replace('<span id="totalCount">131</span>', `<span id="totalCount">${records.length}+</span>`); 
+                html = html.replace('<span id="totalCount">131</span>', `<span id="totalCount">${records.length}+</span>`);
                 return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
             }
 
@@ -101,28 +101,40 @@ export default {
                 const data = await sb_res.json();
 
                 if (!data || data.length === 0) {
-                    // Skill 6: On-Demand Trigger (Future Implementation)
                     return new Response("Audit Not Found. System logged request.", { status: 404 });
                 }
 
                 const record = data[0];
-                const content = markdownToHtml(record.final_article) || "<p>Audit content is being finalized...</p>";
+                let content = markdownToHtml(record.final_article) || "<p>Audit content is being finalized...</p>";
                 const title = record.keyword;
-                
+
                 // Skill 4: Payhip Link Lock
-                // We point to Payhip product page, appending slug as product_id for tracking
                 const payhipLink = `https://payhip.com/b/qoGLF?product_id=${slug}`;
 
                 // Fetch Template
                 const tplRes = await fetch("https://raw.githubusercontent.com/baifan7574/soeasyhub-v2-main/main/template.html");
                 let html = await tplRes.text();
 
+                // Generate Standard Button HTML (Skill 4 Patch)
+                const buttonHtml = `
+                <div style="background:#fff7ed;border:2px dashed #f97316;padding:30px;border-radius:12px;margin:40px 0;text-align:center;">
+                    <h3 style="color:#9a3412;margin-top:0;font-size:1.2rem;">🚀 Skip the Labyrinth: Get Your 2026 ${title} Fast-Track Bible</h3>
+                    <p style="color:#c2410c;margin-bottom:20px;font-size:0.95rem;">Unlock the full audit report with fee breakdowns, step-by-step SOPs, and direct contact list.</p>
+                    <a href="${payhipLink}" style="display:inline-block;background:#ea580c;color:white;padding:16px 40px;border-radius:50px;font-weight:700;text-decoration:none;font-size:1.1rem;box-shadow:0 10px 15px -3px rgba(234,88,12,0.3);">
+                        Download Full Audit Report ($29.90)
+                    </a>
+                    <div style="margin-top:15px;font-size:0.8rem;color:#94a3b8;">🔒 Secure Payment via Payhip • Instant Delivery</div>
+                </div>`;
+
+                // Global Replace: Replace placeholder with actual button code
+                content = content.replace(/\[BUY_BUTTON_PLACEHOLDER\]/g, buttonHtml);
+
                 // Injection
                 html = html.replace("{{TITLE}}", title);
                 html = html.replace("{{CONTENT}}", content);
-                html = html.replaceAll("{{PDF_LINK}}", payhipLink); // ALL links go to Payhip
+                html = html.replaceAll("{{PDF_LINK}}", payhipLink); // Fallback for template.html static links
                 html = html.replace("{{ADS_DISPLAY}}", ADS_ON);
-                
+
                 // SEO
                 const metaDesc = `Download the 2026 Official ${title} Audit Report. Validated state requirements, fees, and application SOPs.`;
                 html = html.replace("{{METADATA}}", `<meta name="description" content="${metaDesc}">`);
@@ -135,7 +147,7 @@ export default {
             // =================================================================
             if (path === "/success") {
                 const productId = url.searchParams.get("product_id"); // Comes from Payhip redirect
-                
+
                 if (!productId) return new Response("Invalid Purchase Link", { status: 400 });
 
                 // Fetch PDF URL from DB
@@ -143,7 +155,7 @@ export default {
                     headers: { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}` }
                 });
                 const data = await sb_res.json();
-                
+
                 if (!data || data.length === 0) return new Response("Product Not Found", { status: 404 });
 
                 const record = data[0];
