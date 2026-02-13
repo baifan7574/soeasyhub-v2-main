@@ -6,73 +6,247 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{TITLE}} | SoEasyHub 2026 Audit</title>
     {{METADATA}}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #f97316;
+            --dark: #0f172a;
+            --text: #334155;
+            --light-bg: #f8fafc;
+        }
+
         body {
             margin: 0;
             font-family: 'Inter', sans-serif;
-            background: #fafafa;
-            color: #1e293b;
+            background: var(--light-bg);
+            color: var(--text);
             line-height: 1.8;
         }
 
+        /* ===== HEADER ===== */
         .header {
-            background: #0f172a;
-            padding: 20px;
-            color: white;
-            border-bottom: 4px solid #f97316;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 50px auto;
-            padding: 40px;
             background: white;
-            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            padding: 15px 0;
+        }
+
+        .nav-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-weight: 800;
+            font-size: 1.2rem;
+            color: var(--dark);
+            text-decoration: none;
+        }
+
+        .logo span {
+            color: var(--primary);
+        }
+
+        .back-link {
+            font-size: 0.9rem;
+            color: #64748b;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .back-link:hover {
+            color: var(--primary);
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .paper {
+            background: white;
+            padding: 50px;
             border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            border: 1px solid #f1f5f9;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 30px 0;
-        }
-
-        th {
-            background: #f1f5f9;
-            text-align: left;
-            padding: 15px;
-            border-bottom: 2px solid #e2e8f0;
-        }
-
-        td {
-            padding: 15px;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
+        /* ===== TITLES ISOLATION ===== */
         h1 {
-            font-size: 2.5rem;
-            color: #0f172a;
-            letter-spacing: -1px;
+            font-size: 2.2rem;
+            line-height: 1.3;
+            color: var(--dark);
+            margin-bottom: 10px;
+            letter-spacing: -0.02em;
         }
 
-        img {
-            max-width: 100%;
+        .audit-meta {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 15px;
+            font-weight: 500;
+        }
+
+        .meta-tag {
+            background: #f1f5f9;
+            padding: 2px 10px;
+            border-radius: 4px;
+            color: #475569;
+        }
+
+        /* ===== CONTENT STYLING ===== */
+        .content {
+            font-size: 1.05rem;
+            color: #334155;
+        }
+
+        .content h2 {
+            font-size: 1.5rem;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            color: var(--dark);
+            border-left: 4px solid var(--primary);
+            padding-left: 15px;
+        }
+
+        .content h3 {
+            font-size: 1.2rem;
+            margin-top: 30px;
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        .content ul {
+            padding-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        .content li {
+            margin-bottom: 10px;
+        }
+
+        .content strong {
+            color: var(--dark);
+            font-weight: 600;
+        }
+
+        .content a {
+            color: var(--primary);
+            text-decoration: underline;
+            text-decoration-color: rgba(249, 115, 22, 0.3);
+            text-underline-offset: 3px;
+        }
+
+        .content a:hover {
+            text-decoration-color: var(--primary);
+        }
+
+        /* ===== ACTION BOX ===== */
+        .action-box {
+            background: linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%);
+            border: 1px solid #fed7aa;
             border-radius: 12px;
+            padding: 30px;
+            margin: 40px 0;
+            text-align: center;
         }
 
-        .monetization-box {
-            animation: slideIn 0.5s ease-out;
+        .action-title {
+            font-weight: 700;
+            color: #9a3412;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
         }
 
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
+        .action-text {
+            color: #c2410c;
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+        }
+
+        .btn-download {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: #ea580c;
+            color: white;
+            padding: 16px 40px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-decoration: none;
+            transition: 0.2s;
+            box-shadow: 0 10px 15px -3px rgba(234, 88, 12, 0.3);
+        }
+
+        .btn-download:hover {
+            background: #c2410c;
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(234, 88, 12, 0.4);
+        }
+
+        .secure-badge {
+            margin-top: 15px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        /* ===== ADS ===== */
+        .ad-slot {
+            background: #f8fafc;
+            border: 2px dashed #e2e8f0;
+            border-radius: 8px;
+            margin: 40px 0;
+            padding: 20px;
+            text-align: center;
+            color: #cbd5e1;
+            font-size: 0.9rem;
+
+            display: {
+                    {
+                    ADS_DISPLAY
+                }
             }
 
-            to {
-                opacity: 1;
-                transform: translateY(0);
+            ;
+            /* Controlled by worker */
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            text-align: center;
+            padding: 60px 0;
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 640px) {
+            .paper {
+                padding: 25px;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .btn-download {
+                width: 100%;
+                box-sizing: border-box;
             }
         }
     </style>
@@ -80,23 +254,43 @@
 
 <body>
     <div class="header">
-        <div
-            style="max-width: 900px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-weight: bold; font-size: 1.2rem;">SoEasyHub <span style="color: #f97316;">v2.0</span></div>
-            <a href="/" style="color: white; text-decoration: none;">🏠 Return Home</a>
+        <div class="nav-inner">
+            <a href="/" class="logo">SoEasyHub <span>v2</span></a>
+            <a href="/" class="back-link">← All Audits</a>
         </div>
     </div>
+
     <div class="container">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-            <div style="font-size: 0.8rem; color: #64748b;">Series: 2026 Compliance Audit</div>
-            <a href="{{PDF_LINK}}" target="_blank"
-                style="background: #1e293b; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; font-weight: bold;">📄
-                Download Official PDF</a>
+        <div class="paper">
+            <div class="audit-meta">
+                <span class="meta-tag">2026 Edition</span>
+                <span class="meta-tag">Verified Source</span>
+                <span class="meta-tag">PDF Ready</span>
+            </div>
+            <h1>{{TITLE}}</h1>
+
+            <div class="content">
+                {{CONTENT}}
+
+                <!-- MONETIZATION LOCK -->
+                <div class="action-box">
+                    <div class="action-title">📥 Need the Official PDF Report?</div>
+                    <div class="action-text">Get the complete 2026 application package, including step-by-step SOPs, fee
+                        breakdowns, and direct contact list.</div>
+                    <a href="{{PDF_LINK}}" class="btn-download">
+                        Download Full Audit Report ($29.90)
+                    </a>
+                    <div class="secure-badge">🔒 Secure Payment via Payhip • Instant Delivery</div>
+                </div>
+
+                <!-- AD PLACEHOLDER -->
+                <div class="ad-slot">Sponsored Content Space</div>
+            </div>
         </div>
-        {{CONTENT}}
     </div>
-    <div style="text-align: center; padding: 40px; color: #64748b; font-size: 0.8rem;">
-        © 2026 SoEasyHub Compliance Network. Authorized Audit Delivery System.
+
+    <div class="footer">
+        © 2026 SoEasyHub Compliance Network.<br>Official 3rd-Party Audit. Not affiliated with government agencies.
     </div>
 </body>
 

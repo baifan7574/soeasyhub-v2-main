@@ -4,131 +4,341 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SoEasyHub | Official 2026 Compliance Audit Gateway</title>
+    <title>SoEasyHub | Official 2026 Multi-State Compliance Audit Gateway</title>
+    <meta name="description" content="Find your fast track to multi-state licensing. 131+ professional compliance audit reports powered by Matrix AI. Download official 2026 audit reports instantly.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #f97316;
-            --dark: #0f172a;
-            --glass: rgba(255, 255, 255, 0.05);
+            --primary-glow: #fb923c;
+            --dark: #0a0e1a;
+            --dark-card: #111827;
+            --glass: rgba(255, 255, 255, 0.04);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-muted: #64748b;
+            --text-dim: #94a3b8;
+            --accent-medical: #ef4444;
+            --accent-education: #3b82f6;
+            --accent-engineering: #10b981;
+            --accent-legal: #8b5cf6;
+            --accent-finance: #f59e0b;
+            --accent-other: #6366f1;
         }
 
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            margin: 0;
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             background: var(--dark);
             color: white;
             line-height: 1.6;
+            overflow-x: hidden;
         }
 
-        .hero {
-            height: 80vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
-            text-align: center;
-            padding: 20px;
-        }
-
-        h1 {
-            font-size: 4rem;
-            margin: 0;
-            background: linear-gradient(to right, #f97316, #fb923c);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -2px;
-        }
-
-        .subtitle {
-            font-size: 1.2rem;
-            color: #94a3b8;
-            max-width: 600px;
-            margin: 20px 0;
-        }
-
-        .audit-stream {
-            max-width: 1000px;
-            margin: -100px auto 50px;
-            padding: 20px;
-            background: var(--glass);
+        /* ===== NAVBAR ===== */
+        .navbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 16px 40px;
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(10, 14, 26, 0.85);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .navbar-brand {
+            font-weight: 800; font-size: 1.3rem;
+            background: linear-gradient(135deg, #f97316, #fb923c);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .navbar-tag {
+            font-size: 0.7rem; color: var(--primary); border: 1px solid var(--primary);
+            padding: 2px 8px; border-radius: 20px; margin-left: 8px;
+            font-weight: 600; letter-spacing: 1px;
+        }
+        .navbar-stats {
+            font-size: 0.8rem; color: var(--text-dim);
+        }
+        .navbar-stats span { color: var(--primary); font-weight: 700; }
+
+        /* ===== HERO SECTION ===== */
+        .hero {
+            min-height: 70vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 120px 20px 60px;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% 0%, rgba(249,115,22,0.12) 0%, transparent 60%),
+                radial-gradient(circle at 20% 80%, rgba(59,130,246,0.06) 0%, transparent 40%),
+                var(--dark);
+            position: relative;
+        }
+        .hero::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 120px;
+            background: linear-gradient(to bottom, transparent, var(--dark));
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 16px; border-radius: 20px;
+            background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.3);
+            font-size: 0.75rem; color: var(--primary); font-weight: 600;
+            margin-bottom: 24px; letter-spacing: 1px; text-transform: uppercase;
+        }
+        .hero-badge::before {
+            content: ''; width: 6px; height: 6px; background: var(--primary);
+            border-radius: 50%; animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100% { opacity: 1; box-shadow: 0 0 8px var(--primary); } 50% { opacity: 0.4; box-shadow: none; } }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4.5rem); font-weight: 900;
+            letter-spacing: -2px; line-height: 1.1; margin-bottom: 16px;
+        }
+        .hero h1 .gradient {
+            background: linear-gradient(135deg, #f97316, #fb923c, #fbbf24);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero-sub {
+            font-size: 1.15rem; color: var(--text-dim); max-width: 640px; margin-bottom: 40px;
         }
 
-        .stream-title {
-            font-weight: bold;
-            color: var(--primary);
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 2px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
+        /* ===== SEARCH BAR ===== */
+        .search-wrap {
+            width: 100%; max-width: 600px; position: relative; z-index: 2;
+        }
+        .search-bar {
+            width: 100%; padding: 18px 60px 18px 24px;
+            border-radius: 16px; border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.06); backdrop-filter: blur(10px);
+            color: white; font-size: 1rem; font-family: inherit;
+            outline: none; transition: 0.3s;
+        }
+        .search-bar::placeholder { color: var(--text-muted); }
+        .search-bar:focus { border-color: var(--primary); box-shadow: 0 0 30px rgba(249,115,22,0.15); }
+        .search-icon {
+            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+            font-size: 1.2rem; color: var(--primary); pointer-events: none;
         }
 
-        .stream-title::before {
-            content: '';
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background: red;
-            border-radius: 50%;
-            margin-right: 10px;
-            box-shadow: 0 0 10px red;
+        /* ===== CATEGORY NAVIGATION ===== */
+        .categories {
+            max-width: 1200px; margin: -20px auto 40px; padding: 0 20px;
+            position: relative; z-index: 2;
+        }
+        .cat-title {
+            font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 2px; margin-bottom: 16px; font-weight: 600;
+        }
+        .cat-pills {
+            display: flex; flex-wrap: wrap; gap: 10px;
+        }
+        .cat-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 18px; border-radius: 10px;
+            background: var(--glass); border: 1px solid var(--glass-border);
+            color: var(--text-dim); font-size: 0.82rem; font-weight: 500;
+            cursor: pointer; transition: 0.3s; text-decoration: none;
+        }
+        .cat-pill:hover, .cat-pill.active {
+            background: rgba(249,115,22,0.12); border-color: var(--primary);
+            color: var(--primary); transform: translateY(-2px);
+        }
+        .cat-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+        }
+
+        /* ===== AUDIT GRID ===== */
+        .grid-section {
+            max-width: 1200px; margin: 0 auto 80px; padding: 0 20px;
+        }
+        .grid-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 24px;
+        }
+        .grid-label {
+            font-size: 0.75rem; color: var(--primary); text-transform: uppercase;
+            letter-spacing: 2px; font-weight: 700;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .grid-label::before {
+            content: ''; width: 8px; height: 8px; background: #ef4444;
+            border-radius: 50%; box-shadow: 0 0 10px #ef4444;
             animation: pulse 2s infinite;
         }
-
-        @keyframes pulse {
-            0% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.3;
-            }
-
-            100% {
-                opacity: 1;
-            }
-        }
+        .grid-count { font-size: 0.8rem; color: var(--text-muted); }
 
         .audit-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
         }
-
         .audit-card {
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 12px;
-            transition: 0.3s;
-            text-decoration: none;
-            color: inherit;
+            padding: 24px; border-radius: 16px;
+            background: var(--dark-card);
+            border: 1px solid var(--glass-border);
+            text-decoration: none; color: inherit;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative; overflow: hidden;
+        }
+        .audit-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--primary-glow));
+            opacity: 0; transition: 0.3s;
+        }
+        .audit-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(249,115,22,0.3);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(249,115,22,0.06);
+        }
+        .audit-card:hover::before { opacity: 1; }
+
+        .card-tag {
+            display: inline-block; font-size: 0.65rem; color: var(--primary);
+            background: rgba(249,115,22,0.1); padding: 3px 10px;
+            border-radius: 6px; font-weight: 600; letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+        .card-title {
+            font-weight: 700; font-size: 1.05rem; margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .card-meta {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.75rem; color: var(--text-muted);
+        }
+        .card-status {
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .card-status::before {
+            content: ''; width: 6px; height: 6px; background: #10b981;
+            border-radius: 50%;
+        }
+        .card-price {
+            font-weight: 700; color: var(--primary-glow);
         }
 
-        .audit-card:hover {
-            background: rgba(255, 255, 255, 0.08);
-            transform: translateY(-5px);
+        /* ===== FOOTER ===== */
+        .footer {
+            text-align: center; padding: 60px 20px;
+            border-top: 1px solid var(--glass-border);
+            color: var(--text-muted); font-size: 0.8rem;
+        }
+        .footer a { color: var(--primary); text-decoration: none; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .navbar { padding: 12px 16px; }
+            .hero { padding: 100px 16px 40px; min-height: 60vh; }
+            .hero h1 { font-size: 2.2rem; }
+            .audit-grid { grid-template-columns: 1fr; }
+            .cat-pills { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 8px; }
+            .cat-pill { white-space: nowrap; flex-shrink: 0; }
         }
     </style>
 </head>
 
 <body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div style="display:flex;align-items:center;">
+            <span class="navbar-brand">SoEasyHub</span>
+            <span class="navbar-tag">v2.0</span>
+        </div>
+        <div class="navbar-stats">
+            <span id="totalCount">131</span> Professions Audited
+        </div>
+    </nav>
+
+    <!-- HERO -->
     <section class="hero">
-        <h1>SoEasyHub v2</h1>
-        <p class="subtitle">The World's Largest Intelligence Network for Professional License Compliance. Real-time 2026
-            Audit Reports Powered by Matrix AI.</p>
+        <div class="hero-badge">Live System &mdash; Matrix AI Powered</div>
+        <h1>Find Your <span class="gradient">Fast Track</span><br>to Multi-State Licensing</h1>
+        <p class="hero-sub">Access 131+ official 2026 compliance audit reports. Real fee breakdowns, application SOPs, and licensing intelligence for every regulated profession.</p>
+        <div class="search-wrap">
+            <input class="search-bar" id="searchInput" type="text" placeholder="Search professions... e.g. Nurse, Engineer, CPA, Therapist">
+            <span class="search-icon">🔍</span>
+        </div>
     </section>
 
-    <div class="audit-stream">
-        <div class="stream-title">Live Audit Production Stream</div>
+    <!-- CATEGORY NAV -->
+    <div class="categories">
+        <div class="cat-title">Browse by Industry</div>
+        <div class="cat-pills" id="catPills">
+            <span class="cat-pill active" data-cat="all"><span class="cat-dot" style="background:#f97316"></span>All Professions</span>
+            <span class="cat-pill" data-cat="medical"><span class="cat-dot" style="background:#ef4444"></span>Healthcare & Medical</span>
+            <span class="cat-pill" data-cat="education"><span class="cat-dot" style="background:#3b82f6"></span>Education</span>
+            <span class="cat-pill" data-cat="engineering"><span class="cat-dot" style="background:#10b981"></span>Engineering & Architecture</span>
+            <span class="cat-pill" data-cat="legal"><span class="cat-dot" style="background:#8b5cf6"></span>Legal & Compliance</span>
+            <span class="cat-pill" data-cat="finance"><span class="cat-dot" style="background:#f59e0b"></span>Finance & Insurance</span>
+            <span class="cat-pill" data-cat="other"><span class="cat-dot" style="background:#6366f1"></span>Other Professions</span>
+        </div>
+    </div>
+
+    <!-- AUDIT GRID -->
+    <div class="grid-section">
+        <div class="grid-header">
+            <div class="grid-label">Live Audit Production Stream</div>
+            <div class="grid-count" id="gridCount">Loading...</div>
+        </div>
         <div class="audit-grid" id="grid">
             <!-- DYNAMIC_GRID -->
         </div>
     </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+        <p>© 2026 <a href="/">SoEasyHub</a> Compliance Network. Authorized Audit Delivery System.</p>
+        <p style="margin-top:8px;font-size:0.7rem;color:#475569;">Powered by Matrix AI · Real-time Data from 50 State Boards</p>
+    </div>
+
+    <!-- SEARCH & FILTER LOGIC -->
+    <script>
+        // Search filter
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('.audit-card').forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(q) ? '' : 'none';
+            });
+            updateCount();
+        });
+
+        // Category filter
+        document.querySelectorAll('.cat-pill').forEach(pill => {
+            pill.addEventListener('click', function() {
+                document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+                this.classList.add('active');
+                const cat = this.dataset.cat;
+                document.querySelectorAll('.audit-card').forEach(card => {
+                    if (cat === 'all') { card.style.display = ''; return; }
+                    const cardCat = card.dataset.category || '';
+                    card.style.display = cardCat === cat ? '' : 'none';
+                });
+                updateCount();
+            });
+        });
+
+        function updateCount() {
+            const visible = document.querySelectorAll('.audit-card:not([style*="display: none"])').length;
+            document.getElementById('gridCount').textContent = visible + ' reports available';
+        }
+
+        // Animate cards on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    e.target.style.opacity = '1';
+                    e.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, { threshold: 0.1 });
+        setTimeout(() => {
+            document.querySelectorAll('.audit-card').forEach(card => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'all 0.5s ease';
+                observer.observe(card);
+            });
+            updateCount();
+        }, 100);
+    </script>
 </body>
 
 </html>

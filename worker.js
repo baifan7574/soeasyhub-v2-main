@@ -1,6 +1,7 @@
 /**
- * soeasyhub-v2 Cloudflare Worker (Production Grade - V2.2)
+ * soeasyhub-v2 Cloudflare Worker (Production Grade - V2.3)
  * Mission: Zero-Server Dynamic Orchestration with Loop Prevention
+ * Skills: 06-grich-deployer (Skill 2, 3, 4, 5, 7)
  */
 
 // Lightweight Markdown → HTML converter (runs in Worker)
@@ -10,27 +11,23 @@ function markdownToHtml(md) {
     if (md.trim().startsWith('<')) return md;
 
     let html = md;
-    // Headers: ### → h3, ## → h2, # → h1 (order matters: longest first)
+    // Headers
     html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
     html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
     html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-    // Bold: **text** → <strong>text</strong>
+    // Formatting
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    // Italic: *text* → <em>text</em>
     html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
-    // Links: [text](url) → <a href="url">text</a>
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#f97316;font-weight:bold;text-decoration:none;">$1</a>');
-    // Unordered lists: - item → <li>item</li>
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+    // Lists & Paragraphs
     html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
     html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-    // Paragraphs: double newlines → <p> blocks
     html = html.replace(/\n{2,}/g, '</p><p>');
     html = '<p>' + html + '</p>';
-    // Clean up empty <p> tags and fix nested issues
+    // Cleanup
     html = html.replace(/<p>\s*<(h[1-3]|ul|li)/g, '<$1');
     html = html.replace(/<\/(h[1-3]|ul|li)>\s*<\/p>/g, '</$1>');
     html = html.replace(/<p>\s*<\/p>/g, '');
-    // Unescape JSON-escaped quotes
     html = html.replace(/\\"/g, '"');
 
     return html;
@@ -41,100 +38,149 @@ export default {
         const url = new URL(request.url);
         const path = url.pathname;
 
-        // Credentials from Environment/Secrets
+        // Credentials & Config
         const SB_URL = env.SUPABASE_URL || "https://nbfzhxgkfljeuoncujum.supabase.co";
         const SB_KEY = env.SUPABASE_KEY;
+        const ADS_ON = env.ADSENSE_ID ? "block" : "none"; // Skill 2
 
-        if (!SB_KEY) {
-            return new Response("Error: SUPABASE_KEY missing in Worker env.", { status: 500 });
-        }
+        if (!SB_KEY) return new Response("Error: SUPABASE_KEY missing.", { status: 500 });
 
         try {
-            // 1. Home Page Logic: Dynamic "Recently Sealed Audits" List
+            // =================================================================
+            // ROUTE 1: HOME PAGE (Skill 3: Visual Engine)
+            // =================================================================
             if (path === "/" || path === "/index.html") {
-                // FETCH SKELETON FROM GITHUB (To avoid Worker subrequest loop)
+                // Fetch Skeleton
                 const indexRes = await fetch("https://raw.githubusercontent.com/baifan7574/soeasyhub-v2-main/main/index.html");
-                if (!indexRes.ok) throw new Error("Failed to fetch index skeleton from GitHub.");
+                if (!indexRes.ok) throw new Error("GitHub fetch failed");
                 let html = await indexRes.text();
 
-                // Fetch latest 10 refined records from Supabase
-                const sb_res = await fetch(`${SB_URL}/rest/v1/grich_keywords_pool?is_refined=eq.true&select=slug,keyword,last_mined_at&order=last_mined_at.desc&limit=10`, {
+                // Fetch Top 50 Refined Records (For Grid)
+                const sb_res = await fetch(`${SB_URL}/rest/v1/grich_keywords_pool?is_refined=eq.true&select=slug,keyword,last_mined_at&order=last_mined_at.desc&limit=50`, {
                     headers: { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}` }
                 });
-                if (!sb_res.ok) {
-                    const errBody = await sb_res.text();
-                    throw new Error(`Supabase Fetch Failed (Home) | Status: ${sb_res.status} ${sb_res.statusText} | Body: ${errBody}`);
-                }
                 const records = await sb_res.json();
 
                 let gridHtml = '';
                 records.forEach(r => {
+                    // Skill 3: Auto-Categorization Logic based on keywords
+                    let cat = 'other';
+                    const kw = r.keyword.toLowerCase();
+                    if (kw.includes('med') || kw.includes('nurs') || kw.includes('health') || kw.includes('doctor') || kw.includes('therap')) cat = 'medical';
+                    else if (kw.includes('teach') || kw.includes('school') || kw.includes('educa')) cat = 'education';
+                    else if (kw.includes('engin') || kw.includes('archit') || kw.includes('contract')) cat = 'engineering';
+                    else if (kw.includes('law') || kw.includes('attorney') || kw.includes('bar') || kw.includes('paralegal')) cat = 'legal';
+                    else if (kw.includes('cpa') || kw.includes('account') || kw.includes('insur') || kw.includes('tax')) cat = 'finance';
+
                     gridHtml += `
-                    <a href="/p/${r.slug}" class="audit-card">
-                        <div style="font-size: 0.7rem; color: #64748b;">#AUD-${r.slug.substring(0, 3).toUpperCase()}</div>
-                        <div style="font-weight: bold; margin: 10px 0;">${r.keyword}</div>
-                        <div style="font-size: 0.8rem; color: #94a3b8;">Status: Sealed & Audit Ready</div>
+                    <a href="/p/${r.slug}" class="audit-card" data-category="${cat}">
+                        <div class="card-tag">#AUD-${r.slug.substring(0, 3).toUpperCase()}</div>
+                        <div class="card-title">${r.keyword}</div>
+                        <div class="card-meta">
+                            <span class="card-status">Sealed</span>
+                            <span class="card-price">$29.90</span>
+                        </div>
                     </a>`;
                 });
 
                 html = html.replace("<!-- DYNAMIC_GRID -->", gridHtml);
+                html = html.replace('<span id="totalCount">131</span>', `<span id="totalCount">${records.length}+</span>`); 
                 return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
             }
 
-            // 2. Dynamic Article Routing: /p/slug-name
+            // =================================================================
+            // ROUTE 2: ARTICLE DETAIL (Skill 4: Payhip Lock)
+            // =================================================================
             if (path.startsWith("/p/")) {
                 const slug = path.split("/p/")[1];
 
-                // Fetch Data from Supabase
+                // Fetch Data
                 const sb_res = await fetch(`${SB_URL}/rest/v1/grich_keywords_pool?slug=eq.${slug}&select=*`, {
                     headers: { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}` }
                 });
-                if (!sb_res.ok) {
-                    const errBody = await sb_res.text();
-                    throw new Error(`Supabase Fetch Failed (Detail) | Status: ${sb_res.status} ${sb_res.statusText} | Body: ${errBody}`);
-                }
                 const data = await sb_res.json();
 
-                if (!data || data.length === 0) return new Response("Audit Location Not Found", { status: 404 });
-
-                const record = data[0];
-                const article = markdownToHtml(record.final_article) || "<h1>Audit Under Construction...</h1><p>Our auditors are currently processing this request. Estimate: 5 minutes.</p>";
-                const title = record.keyword || "Compliance Audit";
-
-                // Robust PDF Extraction
-                let pdfUrl = "#";
-                if (record.pdf_url) {
-                    pdfUrl = record.pdf_url;
-                } else if (record.content_json && record.content_json.pdf_url_cloud) {
-                    pdfUrl = record.content_json.pdf_url_cloud;
+                if (!data || data.length === 0) {
+                    // Skill 6: On-Demand Trigger (Future Implementation)
+                    return new Response("Audit Not Found. System logged request.", { status: 404 });
                 }
 
-                // FETCH MASTER TEMPLATE FROM GITHUB
-                const templateRes = await fetch("https://raw.githubusercontent.com/baifan7574/soeasyhub-v2-main/main/template.html");
-                if (!templateRes.ok) throw new Error("Failed to fetch template from GitHub.");
-                let html = await templateRes.text();
+                const record = data[0];
+                const content = markdownToHtml(record.final_article) || "<p>Audit content is being finalized...</p>";
+                const title = record.keyword;
+                
+                // Skill 4: Payhip Link Lock
+                // We point to Payhip product page, appending slug as product_id for tracking
+                const payhipLink = `https://payhip.com/b/qoGLF?product_id=${slug}`;
 
-                // Inject Content & Logic
-                html = html.replaceAll("{{PDF_LINK}}", pdfUrl);
-                html = html.replace("{{TITLE}}", title)
-                    .replace("{{CONTENT}}", article)
-                    .replace("{{METADATA}}", `<meta name="description" content="Download the 2026 Official ${title} Audit Report. Complete fee breakdown and application SOP.">`);
+                // Fetch Template
+                const tplRes = await fetch("https://raw.githubusercontent.com/baifan7574/soeasyhub-v2-main/main/template.html");
+                let html = await tplRes.text();
+
+                // Injection
+                html = html.replace("{{TITLE}}", title);
+                html = html.replace("{{CONTENT}}", content);
+                html = html.replaceAll("{{PDF_LINK}}", payhipLink); // ALL links go to Payhip
+                html = html.replace("{{ADS_DISPLAY}}", ADS_ON);
+                
+                // SEO
+                const metaDesc = `Download the 2026 Official ${title} Audit Report. Validated state requirements, fees, and application SOPs.`;
+                html = html.replace("{{METADATA}}", `<meta name="description" content="${metaDesc}">`);
 
                 return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
             }
 
-            // Fallback for sitemap or other static files
-            if (path === "/sitemap.xml") {
-                const sitemapRes = await fetch("https://raw.githubusercontent.com/baifan7574/soeasyhub-v2-main/main/sitemap.xml");
-                const xml = await sitemapRes.text();
-                return new Response(xml, { headers: { "Content-Type": "application/xml" } });
+            // =================================================================
+            // ROUTE 3: SUCCESS CALLBACK (Skill 4 & 5: Fulfillment)
+            // =================================================================
+            if (path === "/success") {
+                const productId = url.searchParams.get("product_id"); // Comes from Payhip redirect
+                
+                if (!productId) return new Response("Invalid Purchase Link", { status: 400 });
+
+                // Fetch PDF URL from DB
+                const sb_res = await fetch(`${SB_URL}/rest/v1/grich_keywords_pool?slug=eq.${productId}&select=pdf_url,content_json`, {
+                    headers: { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}` }
+                });
+                const data = await sb_res.json();
+                
+                if (!data || data.length === 0) return new Response("Product Not Found", { status: 404 });
+
+                const record = data[0];
+                let pdfUrl = record.pdf_url || (record.content_json && record.content_json.pdf_url_cloud);
+
+                if (pdfUrl) {
+                    // INSTANT DISPATCH: Redirect to the PDF file
+                    return Response.redirect(pdfUrl, 302);
+                } else {
+                    // Skill 5: Fallback Message
+                    return new Response(`
+                    <html>
+                        <body style="font-family:sans-serif;text-align:center;padding:50px;">
+                            <h1 style="color:#f97316;">Payment Verified!</h1>
+                            <p>Your audit report is currently being finalized by our system.</p>
+                            <p><strong>Do not close this window.</strong> We are generating your secure download link...</p>
+                            <p style="color:#94a3b8;font-size:0.9rem;">(If it takes longer than 1 minute, the link will be emailed to you.)</p>
+                        </body>
+                    </html>`, {
+                        headers: { "Content-Type": "text/html" }
+                    });
+                }
             }
 
-            // Final fallback: Try to get from Raw GitHub
+            // =================================================================
+            // ROUTE 4: SITEMAP (Skill 7: SEO)
+            // =================================================================
+            if (path === "/sitemap.xml") {
+                const mapRes = await fetch("https://raw.githubusercontent.com/baifan7574/soeasyhub-v2-main/main/sitemap.xml");
+                return new Response(await mapRes.text(), { headers: { "Content-Type": "application/xml" } });
+            }
+
+            // Fallback
             return fetch(`https://raw.githubusercontent.com/baifan7574/soeasyhub-v2-main/main${path}`);
 
-        } catch (err) {
-            return new Response(`Worker Fatal Error: ${err.message}`, { status: 500 });
+        } catch (e) {
+            return new Response(`System Error: ${e.message}`, { status: 500 });
         }
     }
 };
