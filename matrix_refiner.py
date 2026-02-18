@@ -15,18 +15,28 @@ ENV_SUPABASE_URL = "SUPABASE_URL"
 ENV_SUPABASE_KEY = "SUPABASE_KEY"
 ENV_DEEPSEEK_API_KEY = "DEEPSEEK_API_KEY"
 ENV_GROQ_API_KEY = "GROQ_API_KEY"
+ENV_ZHIPU_API_KEY = "ZHIPU_API_KEY"
 
 class MatrixRefiner:
     def __init__(self):
         self.config = self._load_config()
         self.supabase: Client = create_client(self.config['url'], self.config['key'])
         
+        self.zhipu_key = self.config.get('zhipu_key')
         self.ds_key = self.config.get('ds_key')
-        if not self.ds_key:
-            raise ValueError("❌ Missing DeepSeek API Key. Please set DEEPSEEK_API_KEY environment variable or add DSAPI: to Token file.")
-            
-        self.client = OpenAI(api_key=self.ds_key, base_url="https://api.deepseek.com")
-        print("🏭 Refinery Online.")
+        
+        if self.zhipu_key:
+            # Use ZhipuAI GLM-4V as primary engine
+            self.client = OpenAI(api_key=self.zhipu_key, base_url="https://open.bigmodel.cn/api/paas/v4/")
+            self.model = "glm-4v"
+            print("🏭 Refinery Online (GLM-4V Engine).")
+        elif self.ds_key:
+            # Fallback to DeepSeek
+            self.client = OpenAI(api_key=self.ds_key, base_url="https://api.deepseek.com")
+            self.model = "deepseek-chat"
+            print("🏭 Refinery Online (DeepSeek Engine).")
+        else:
+            raise ValueError("❌ Missing API Key. Please set ZHIPU_API_KEY or DEEPSEEK_API_KEY environment variable.")
 
     def _load_config(self):
         config = {}
@@ -35,11 +45,14 @@ class MatrixRefiner:
         supabase_url = os.environ.get(ENV_SUPABASE_URL)
         supabase_key = os.environ.get(ENV_SUPABASE_KEY)
         deepseek_key = os.environ.get(ENV_DEEPSEEK_API_KEY)
+        zhipu_key = os.environ.get(ENV_ZHIPU_API_KEY)
         
         if supabase_url and supabase_key:
             config['url'] = supabase_url
             config['key'] = supabase_key
-            if deepseek_key:
+            if zhipu_key:
+                config['zhipu_key'] = zhipu_key
+            elif deepseek_key:
                 config['ds_key'] = deepseek_key
             print("✅ Config loaded from environment variables.")
             return config
@@ -67,6 +80,8 @@ class MatrixRefiner:
                     config['url'] = line.split("Project URL:")[1].strip()
                 if "Secret keys:" in line:
                     config['key'] = line.split("Secret keys:")[1].strip()
+                if "ZHIPUAPI:" in line:
+                    config['zhipu_key'] = line.split("ZHIPUAPI:")[1].strip()
                 if "DSAPI:" in line:
                     config['ds_key'] = line.split("DSAPI:")[1].strip()
         
@@ -131,7 +146,7 @@ class MatrixRefiner:
             print(f"   ❌ PDF Extraction Error: {e}")
             return None
 
-    def refine_with_deepseek(self, raw_text):
+    def refine_with_ai(self, raw_text):
         prompt = """
         You are a Professional License Compliance Analyst.
         Extract structured data from the text.
@@ -149,7 +164,7 @@ class MatrixRefiner:
         
         try:
             response = self.client.chat.completions.create(
-                model="deepseek-chat",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant that outputs strict JSON."},
                     {"role": "user", "content": prompt},
@@ -161,7 +176,7 @@ class MatrixRefiner:
                 content = content.replace("```json", "").replace("```", "")
             return content.strip()
         except Exception as e:
-            print(f"   ❌ DeepSeek API Error: {e}")
+            print(f"   ❌ AI API Error ({self.model}): {e}")
             return None
 
     def update_db(self, record_id, json_data):
@@ -219,13 +234,13 @@ class MatrixRefiner:
                 continue
             
             # 3. Refine
-            json_result = self.refine_with_deepseek(text)
+            json_result = self.refine_with_ai(text)
             
             # 4. Update
             if json_result:
                 self.update_db(rid, json_result)
             else:
-                self.mark_failed_refine(rid, "deepseek_failed")
+                self.mark_failed_refine(rid, "ai_api_failed")
                 failures.append(slug)
             
             if os.path.exists(pdf_path):

@@ -19,6 +19,7 @@ ENV_SUPABASE_URL = "SUPABASE_URL"
 ENV_SUPABASE_KEY = "SUPABASE_KEY"
 ENV_DEEPSEEK_API_KEY = "DEEPSEEK_API_KEY"
 ENV_GROQ_API_KEY = "GROQ_API_KEY"
+ENV_ZHIPU_API_KEY = "ZHIPU_API_KEY"
 
 class MatrixComposer:
     def __init__(self):
@@ -34,7 +35,11 @@ class MatrixComposer:
             "Independent Licensing Industry Observer"
         ]
         
-        if self.config.get('groq_key'):
+        if self.config.get('zhipu_key'):
+            print("✍️ [ZhipuAI Turbo] Engine: GLM-4V")
+            self.client = OpenAI(api_key=self.config['zhipu_key'], base_url="https://open.bigmodel.cn/api/paas/v4/", max_retries=3)
+            self.model = "glm-4v"
+        elif self.config.get('groq_key'):
              print("✍️ [Monetization Master] Engine: Groq Llama-3.3")
              self.client = OpenAI(api_key=self.config['groq_key'], base_url="https://api.groq.com/openai/v1", max_retries=3)
              self.model = "llama-3.3-70b-versatile"
@@ -43,7 +48,7 @@ class MatrixComposer:
              self.client = OpenAI(api_key=self.config['ds_key'], base_url="https://api.deepseek.com", max_retries=3)
              self.model = "deepseek-chat"
         else:
-            raise ValueError("❌ Missing API Keys.")
+            raise ValueError("❌ Missing API Keys. Please set ZHIPU_API_KEY, GROQ_API_KEY or DEEPSEEK_API_KEY.")
 
     def _load_config(self):
         config = {}
@@ -53,14 +58,17 @@ class MatrixComposer:
         supabase_key = os.environ.get(ENV_SUPABASE_KEY)
         deepseek_key = os.environ.get(ENV_DEEPSEEK_API_KEY)
         groq_key = os.environ.get(ENV_GROQ_API_KEY)
+        zhipu_key = os.environ.get(ENV_ZHIPU_API_KEY)
         
         if supabase_url and supabase_key:
             config['url'] = supabase_url
             config['key'] = supabase_key
-            if deepseek_key:
-                config['ds_key'] = deepseek_key
-            if groq_key:
+            if zhipu_key:
+                config['zhipu_key'] = zhipu_key
+            elif groq_key:
                 config['groq_key'] = groq_key
+            elif deepseek_key:
+                config['ds_key'] = deepseek_key
             print("✅ Config loaded from environment variables.")
             return config
         
@@ -81,7 +89,7 @@ class MatrixComposer:
             raise FileNotFoundError(
                 f"Critical: Token..txt not found and environment variables {ENV_SUPABASE_URL}/{ENV_SUPABASE_KEY} not set."
             )
-
+        
         with open(token_path, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
@@ -90,6 +98,8 @@ class MatrixComposer:
                     config['url'] = line.split("URL:")[1].strip()
                 if "Secret keys:" in line:
                     config['key'] = line.split("keys:")[1].strip()
+                if "ZHIPUAPI:" in line:
+                    config['zhipu_key'] = line.split("ZHIPUAPI:")[1].strip()
                 if "DSAPI:" in line:
                     config['ds_key'] = line.split("DSAPI:")[1].strip()
                 if "groqapi" in line:

@@ -10,7 +10,7 @@ from supabase import create_client, Client
 # ===========================================================================
 
 TOKEN_FILE = os.path.join(".agent", "Token..txt")  # Fallback for local development
-PROJECT_DIR = os.environ.get("PROJECT_DIR", "soeasyhub-v2")  # Allow override via env
+PROJECT_DIR = os.environ.get("PROJECT_DIR", ".")  # Use current directory by default
 BASE_URL = "https://soeasyhub.com"
 
 # Environment variable names for cloud deployment
