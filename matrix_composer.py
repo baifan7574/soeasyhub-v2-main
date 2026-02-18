@@ -101,13 +101,17 @@ class MatrixComposer:
         print("⚠️  Config loaded from local Token file (development mode).")
         return config
 
-    def fetch_records(self, target_slug=None, limit=5):
+    def fetch_records(self, target_slug=None, limit=5, force=False):
         query = self.supabase.table("grich_keywords_pool").select("*")
         if target_slug:
             res = query.eq("slug", target_slug).execute()
         else:
-            # Fetch records that have refined content but no final article yet
-            res = query.not_.is_("content_json", "null").is_("final_article", "null").order("last_mined_at", desc=True).limit(limit).execute()
+            if force:
+                # When force is True, fetch all records with content_json regardless of final_article status
+                res = query.not_.is_("content_json", "null").order("last_mined_at", desc=True).limit(limit).execute()
+            else:
+                # Fetch records that have refined content but no final article yet
+                res = query.not_.is_("content_json", "null").is_("final_article", "null").order("last_mined_at", desc=True).limit(limit).execute()
         return res.data
 
     def compose_article(self, record):
@@ -240,8 +244,8 @@ class MatrixComposer:
         
         return cleaned
 
-    def run(self, target_slug=None, batch_size=5):
-        records = self.fetch_records(target_slug, limit=batch_size)
+    def run(self, target_slug=None, batch_size=5, force=False):
+        records = self.fetch_records(target_slug, limit=batch_size, force=force)
         if not records:
             print("💤 No tasks.")
             return
@@ -266,7 +270,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--slug", help="Regenerate one record")
     parser.add_argument("--batch", type=int, default=5, help="Number of records to process")
+    parser.add_argument('--force', action='store_true', help='Force overwrite existing content')
     args = parser.parse_args()
     
     composer = MatrixComposer()
-    composer.run(target_slug=args.slug, batch_size=args.batch)
+    composer.run(target_slug=args.slug, batch_size=args.batch, force=args.force)
