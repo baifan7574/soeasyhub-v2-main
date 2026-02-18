@@ -3,187 +3,270 @@ import json
 import time
 import argparse
 import random
-import markdown  # Standard Python Markdown library
 from openai import OpenAI
 from supabase import create_client, Client
+import markdown
+
+# ================= Matrix Composer (The Composer) - HOLY BIBLE EDITION v2.1 =================
+# Status: Final Revision (Aligns with SKILL.md)
+# Features: HTML-Only Output, Persona Rotation, Anti-N/A Logic, Double CTA, Internal Siloing.
+# ============================================================================================
+
+TOKEN_FILE = os.path.join(os.path.dirname(__file__), ".agent", "Token..txt")  # Fallback for local development
+
+# Environment variable names for cloud deployment
+ENV_SUPABASE_URL = "SUPABASE_URL"
+ENV_SUPABASE_KEY = "SUPABASE_KEY"
+ENV_DEEPSEEK_API_KEY = "DEEPSEEK_API_KEY"
+ENV_GROQ_API_KEY = "GROQ_API_KEY"
 
 class MatrixComposer:
     def __init__(self):
-        url = os.environ.get('SUPABASE_URL')
-        key = os.environ.get('SUPABASE_KEY')
-        # Support multiple AI backends
-        ds_key = os.environ.get('DEEPSEEK_API_KEY')
-        groq_key = os.environ.get('GROQ_API_KEY')
-
-        if not url or not key:
-            raise ValueError("Missing SUPABASE_URL or SUPABASE_KEY environment variables.")
+        self.config = self._load_config()
+        self.supabase: Client = create_client(self.config['url'], self.config['key'])
         
-        self.supabase: Client = create_client(url, key)
-        
-        # Priority: Groq (Llama-3.3) -> DeepSeek -> Error
-        if groq_key:
-            print("✍️ [Engine] Groq Llama-3.3 (High Speed)")
-            self.client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
-            self.model = "llama-3.3-70b-versatile"
-        elif ds_key:
-            print("✍️ [Engine] DeepSeek-V3 (Fallback)")
-            self.client = OpenAI(api_key=ds_key, base_url="https://api.deepseek.com")
-            self.model = "deepseek-chat"
-        else:
-            raise ValueError("Missing AI API Key (GROQ_API_KEY or DEEPSEEK_API_KEY).")
-
+        # Persona Pool for Randomization (Anti-De-indexing)
         self.personas = [
-            "Senior Regulatory Consultant",
-            "Professional Peer Mentor",
+            "Senior Regulatory Consultant (25 years experience)",
+            "Professional Peer & Active Licensing Advocate",
             "State Board Policy Auditor",
-            "Specialized Compliance Expert"
+            "Specialized Compliance Immigration Expert",
+            "Independent Licensing Industry Observer"
         ]
-
-    def fetch_records(self, target_slug=None, limit=5, force=False):
-        """Fetch records that need processing."""
-        query = self.supabase.table("grich_keywords_pool").select("*")
         
-        if target_slug:
-            # High priority single target
-            res = query.eq("slug", target_slug).execute()
-        elif force:
-            # Overwrite mode: fetch even if article exists (for fixing bad content)
-            res = query.eq("is_refined", True).limit(limit).execute()
+        if self.config.get('groq_key'):
+             print("✍️ [Monetization Master] Engine: Groq Llama-3.3")
+             self.client = OpenAI(api_key=self.config['groq_key'], base_url="https://api.groq.com/openai/v1", max_retries=3)
+             self.model = "llama-3.3-70b-versatile"
+        elif self.config.get('ds_key'):
+             print("✍️ [Content Heavyweight] Engine: DeepSeek-V3")
+             self.client = OpenAI(api_key=self.config['ds_key'], base_url="https://api.deepseek.com", max_retries=3)
+             self.model = "deepseek-chat"
         else:
-            # Normal mode: fetch only empty refined records
-            res = query.eq("is_refined", True).is_("final_article", "null").limit(limit).execute()
-            
-        data = res.data if res.data else []
-        print(f"DEBUG: Retrieved {len(data)} records to process.")
-        return data
+            raise ValueError("❌ Missing API Keys.")
 
-    def fetch_internal_links(self, current_slug, limit=3):
-        """Skill 3: Internal Link Silo - Fetch related articles."""
-        try:
-            # Randomly fetch 3 OTHER records that have articles
-            res = self.supabase.table("grich_keywords_pool") \
-                .select("slug,keyword") \
-                .neq("slug", current_slug) \
-                .not_.is_("final_article", "null") \
-                .limit(10) \
-                .execute()
-            
-            candidates = res.data if res.data else []
-            if not candidates: return []
-            
-            return random.sample(candidates, min(len(candidates), limit))
-        except Exception as e:
-            print(f"   ⚠️ Link Fetch Error: {e}")
-            return []
+    def _load_config(self):
+        config = {}
+        
+        # Priority 1: Read from environment variables (cloud deployment)
+        supabase_url = os.environ.get(ENV_SUPABASE_URL)
+        supabase_key = os.environ.get(ENV_SUPABASE_KEY)
+        deepseek_key = os.environ.get(ENV_DEEPSEEK_API_KEY)
+        groq_key = os.environ.get(ENV_GROQ_API_KEY)
+        
+        if supabase_url and supabase_key:
+            config['url'] = supabase_url
+            config['key'] = supabase_key
+            if deepseek_key:
+                config['ds_key'] = deepseek_key
+            if groq_key:
+                config['groq_key'] = groq_key
+            print("✅ Config loaded from environment variables.")
+            return config
+        
+        # Priority 2: Fallback to local Token file (development)
+        search_paths = [
+            TOKEN_FILE,
+            os.path.join(".agent", "Token..txt"),
+            os.path.join("..", ".agent", "Token..txt")
+        ]
+        
+        token_path = None
+        for p in search_paths:
+            if os.path.exists(p):
+                token_path = p
+                break
+        
+        if not token_path:
+            raise FileNotFoundError(
+                f"Critical: Token..txt not found and environment variables {ENV_SUPABASE_URL}/{ENV_SUPABASE_KEY} not set."
+            )
 
-    def compose(self, record):
-        """Core logic: Compose HTML article from JSON data."""
+        with open(token_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line: continue
+                if "Project URL:" in line:
+                    config['url'] = line.split("URL:")[1].strip()
+                if "Secret keys:" in line:
+                    config['key'] = line.split("keys:")[1].strip()
+                if "DSAPI:" in line:
+                    config['ds_key'] = line.split("DSAPI:")[1].strip()
+                if "groqapi" in line:
+                    config['groq_key'] = line.split(":")[1].strip()
+        
+        if 'url' not in config or 'key' not in config:
+            raise ValueError("Configuration incomplete. Check Token..txt or environment variables.")
+        
+        print("⚠️  Config loaded from local Token file (development mode).")
+        return config
+
+    def fetch_records(self, target_slug=None, limit=5):
+        query = self.supabase.table("grich_keywords_pool").select("*")
+        if target_slug:
+            res = query.eq("slug", target_slug).execute()
+        else:
+            # Fetch records that have refined content but no final article yet
+            res = query.not_.is_("content_json", "null").is_("final_article", "null").order("last_mined_at", desc=True).limit(limit).execute()
+        return res.data
+
+    def compose_article(self, record):
         keyword = record['keyword']
-        data = record['content_json'] # Refined data source
-        persona = random.choice(self.personas)
+        data = record['content_json']
+        current_persona = random.choice(self.personas)
         
-        # Skill 3: Contextual Data Injection
-        # We ensure NO "Unknown" by using Estimated Ranges if needed (AI instruction)
-        
+        # Hard Data Extraction
+        fee = data.get('application_fee', '')
+        time_est = data.get('processing_time', '')
+        reqs = "\n".join([f"- {r}" for r in data.get('requirements', [])]) if isinstance(data.get('requirements'), list) else str(data.get('requirements', ''))
+        steps = "\n".join([f"{i+1}. {s}" for i, s in enumerate(data.get('steps', []))]) if isinstance(data.get('steps'), list) else str(data.get('steps', ''))
+        evidence = data.get('evidence', 'Official state guidelines')
+
+        # CTA Component (HTML Only)
+        BUY_BUTTON = f"""
+        <div class="monetization-box" style="background: #fff7ed; border: 2px dashed #f97316; padding: 35px; border-radius: 12px; margin: 45px 0; text-align: center;">
+            <h3 style="color: #c2410c; margin-top: 0;">🚀 Skip the Labyrinth: Get Your 2026 {keyword} Fast-Track Bible</h3>
+            <p style="color: #7c2d12;">Includes supplement templates, back-door contact lists, and our proven 21-point rejection-proof checklist.</p>
+            <a href="{{{{PDF_LINK}}}}" style="display: inline-block; background: #f97316; color: white; padding: 18px 45px; border-radius: 8px; font-weight: bold; text-decoration: none; font-size: 1.2rem; box-shadow: 0 10px 15px -3px rgba(249, 115, 22, 0.3);">Unlock Audit Report ($29.9)</a>
+            <p style="font-size: 0.8rem; color: #9a3412; margin-top: 15px;">🔒 100% Policy-Aligned | Instant Access | Save Months of Uncertainty</p>
+        </div>
+        """
+
         prompt = f"""
-        ROLE: You are a {persona} writing a definitive 2026 Licensing Guide.
-        TOPIC: {keyword}
-        DATA (Single Source of Truth): {json.dumps(data)}
+        PERSONA: {current_persona}.
+        TOPIC: {keyword}.
+        LANGUAGE: Strictly English.
+        GOAL: High-Conversion SEO Landing Page (1200+ words).
+        FORMAT: Output STRICTLY in clean HTML. No Markdown symbols (no ##, no **, no |).
 
-        INSTRUCTIONS:
-        1. Write a 1200+ word deep-dive article in pure HTML.
-        2. STRUCTURE:
-           <h1>{keyword}: 2026 Official Compliance Audit</h1>
-           <p>(Intro: Hook the reader with 2026 urgency)</p>
-           <h2>1. Fee Breakdown (The "Hidden" Costs)</h2>
-           ... (Detailed analysis of fees, steps, requirements) ...
-           [BUY_BUTTON_PLACEHOLDER]
-           <h2>3. Application SOP (Standard Operating Procedure)</h2>
-           ... (Step-by-step guide) ...
-           <h2>4. Authoritative Conclusion</h2>
-           ...
-           [BUY_BUTTON_PLACEHOLDER]
+        --- DATA ARSENAL (Single Source of Truth) ---
+        - Fee: "{fee if fee else 'USE 2026 INDUSTRY ESTIMATE'}"
+        - Timeline: "{time_est if time_est else 'USE 2026 INDUSTRY ESTIMATE'}"
+        - Requirements: {reqs}
+        - Steps: {steps}
+        - Evidence Original: "{evidence}"
 
-        3. RULES:
-           - NO Markdown (no ##, no **). Use <h2>, <strong>, <table> directly.
-           - NO "Unknown" or "Not Mentioned". If data is missing in JSON, provide a realistic "Estimated Range" based on 2026 US Industry Standards and label it "Estimated".
-           - Tone: Professional, authoritative, yet urgent.
+        --- HOLY BIBLE RULES ---
+        1. HTML ONLY: Use <h1>, <h2>, <p>, <ul>, <li>, <strong>, and <table> for all content. 
+        2. NO "UNKNOWN": Under no circumstances use "Not Mentioned" or "Unknown". If a field is missing, use your "2026 Industry Benchmark Simulator" to give a realistic range (e.g., "$150-$450") and add the disclaimer: "Based on 2026 industry average benchmarks for similar state boards."
+        3. DOUBLE CTA: You MUST insert the provided HTML CTA block exactly twice: once at the 30% mark (after the financial pain point) and once before the conclusion.
+        4. DATA ANCHORING: Boldly highlight the fee using <strong>.
+        5. INTERNAL SILO: At the very end, generate an "Explore Related Pathways" section with 2-3 HTML links like <a href="/p/related-slug">Title</a>.
+        6. NO CODE BLOCKS: Do not wrap the HTML in ```html blocks. Just provide the raw HTML string.
+
+        --- HTML CTA COMPONENT (INSERT TWICE) ---
+        {BUY_BUTTON}
+
+        --- STRUCTURE ---
+        - <h1> Headline
+        - Executive Comparison <table>
+        - Financial Stakes (Discussion of Fee)
+        - Eligibility Labyrinth
+        - Operational Roadmap (Step-by-Step)
+        - Common Point of Rejections (The "Ghost" Requirements)
+        - Industry Disclaimer Case Study
+        - Conclusion & Final CTA
         """
 
         try:
-            print(f"   🧠 Generating content for: {keyword}...")
-            start_time = time.time()
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a specialized Compliance HTML Writer. Return ONLY raw HTML code."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3, # Low temp for factual accuracy
-                timeout=120
-            )
-            raw_content = response.choices[0].message.content
-            duration = time.time() - start_time
-            print(f"   ⚡ Generation took {duration:.2f}s")
+            print(f"   🧠 [Persona: {current_persona}] Writing {keyword} (HTML Injection)...")
             
-            # --- POST-PROCESSING PIPELINE ---
-
-            # 1. Clean wrapper
-            content = raw_content.replace("```html", "").replace("```", "").strip()
-
-            # 2. Force Markdown -> HTML Conversion (Safety Net)
-            # Even if AI is told to output HTML, we pass it through markdown lib just in case it slipped some MD
-            # But wait, if it output actual HTML tags, markdown lib might escape them? 
-            # Better strategy: If it looks like Markdown (has ##), convert it. If it looks like HTML, keep it.
-            if "<h2>" not in content and "##" in content:
-                 print("   ⚠️ Content looks like Markdown. Converting...")
-                 content = markdown.markdown(content)
+            engines = []
+            if self.config.get('groq_key'): engines.append(('Groq', self.config['groq_key'], "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"))
+            if self.config.get('ds_key'): engines.append(('DeepSeek', self.config['ds_key'], "https://api.deepseek.com", "deepseek-chat"))
             
-            # 3. Inject Internal Links (Skill 3)
-            links = self.fetch_internal_links(record['slug'])
-            if links:
-                link_html = '<div style="background:#f8fafc;padding:25px;border-radius:12px;margin-top:40px;">'
-                link_html += '<h3 style="margin-top:0;color:#334155;">Explore Related Pathways</h3><ul style="margin:0;padding-left:20px;">'
-                for l in links:
-                    link_html += f'<li style="margin-bottom:10px;"><a href="/p/{l["slug"]}" style="color:#f97316;font-weight:600;">{l["keyword"]}</a></li>'
-                link_html += '</ul></div>'
-                
-                # Append to end
-                content += link_html
-
-            return content
-
+            random.shuffle(engines)
+            
+            for attempt in range(2): 
+                for engine_name, api_key, base_url, model_name in engines:
+                    try:
+                        temp_client = OpenAI(api_key=api_key, base_url=base_url)
+                        response = temp_client.chat.completions.create(
+                            model=model_name,
+                            messages=[
+                                {"role": "system", "content": "You are a world-class SEO technical writer and compliance expert. You output raw HTML only. No Markdown."},
+                                {"role": "user", "content": prompt},
+                            ],
+                            timeout=300
+                        )
+                        content = response.choices[0].message.content
+                        # Clean potential code blocks
+                        if "```html" in content: content = content.replace("```html", "").replace("```", "")
+                        elif "```" in content: content = content.replace("```", "")
+                        return content.strip()
+                    except Exception as engine_err:
+                        print(f"   ❌ {engine_name} Error: {engine_err}")
+                        continue
+                time.sleep(10)
+            
+            return None
         except Exception as e:
-            print(f"   ❌ AI Generation Error: {e}")
+            print(f"   ❌ Critical Composer Error: {e}")
             return None
 
-    def run(self, target_slug=None, batch_size=5, force=False):
-        records = self.fetch_records(target_slug, batch_size, force)
+    def _ensure_html(self, content):
+        """强制将任何Markdown内容转换为HTML，防止前端显示##乱码"""
+        if not content:
+            return content
+        
+        # 如果内容已经主要是HTML（有标签），但可能包含Markdown片段
+        # 使用markdown库进行转换
+        try:
+            # markdown库可以安全地处理纯HTML和混合内容
+            html_content = markdown.markdown(content, extensions=['extra'])
+            
+            # 检查转换是否有效（不是空或仅包含空白）
+            if html_content and html_content.strip():
+                # 确保转换后的HTML没有残留的Markdown标记
+                if "## " in html_content or "**" in html_content or "|---" in html_content:
+                    # 二次清理：基本替换作为后备
+                    html_content = html_content.replace("## ", "<h2>").replace("**", "<strong>")
+                
+                print(f"   🔧 Markdown->HTML转换完成: {len(content)} -> {len(html_content)} 字符")
+                return html_content
+        except Exception as e:
+            print(f"   ⚠️ Markdown转换失败: {e}, 使用原始内容")
+        
+        # 后备方案：基本清理
+        cleaned = content
+        if "## " in cleaned:
+            cleaned = cleaned.replace("## ", "<h2>")
+        if "**" in cleaned:
+            cleaned = cleaned.replace("**", "<strong>")
+        if "|---" in cleaned:
+            # 移除Markdown表格标记
+            lines = cleaned.split('\n')
+            cleaned = '\n'.join([line for line in lines if not line.strip().startswith('|---')])
+        
+        return cleaned
+
+    def run(self, target_slug=None, batch_size=5):
+        records = self.fetch_records(target_slug, limit=batch_size)
         if not records:
-            print("💤 No tasks found.")
+            print("💤 No tasks.")
             return
 
-        print(f"🚀 Starting Matrix Composer (Batch: {len(records)})...")
-        for r in records:
-            article = self.compose(r)
-            if article and len(article) > 500:
+        print(f"🚀 [Batch Injection] Starting {len(records)} articles...")
+        for record in records:
+            print(f"\n✍️ [Working] {record['slug']}")
+            article = self.compose_article(record)
+            if article:
+                # 强制HTML转换：确保没有任何Markdown残留
+                article = self._ensure_html(article)
+                
                 self.supabase.table("grich_keywords_pool").update({
-                    "final_article": article,
-                    "updated_at": "now()"
-                }).eq("id", r['id']).execute()
-                print(f"   ✅ Saved: {r['slug']} ({len(article)} chars)")
+                    "final_article": article
+                }).eq("id", record['id']).execute()
+                print(f"   ✅ [Inject Success] Chars: {len(article)}")
             else:
-                print(f"   ⚠️ Failed to generate valid article for {r['slug']}")
-            
-            # Respect Rate Limits
+                print(f"   ⚠️ [Skipped] Failed to compose {record['slug']}")
             time.sleep(2)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--slug", help="Target specific slug")
-    parser.add_argument("--batch", type=int, default=1, help="Batch size")
-    parser.add_argument("--force", action="store_true", help="Force overwrite")
+    parser.add_argument("--slug", help="Regenerate one record")
+    parser.add_argument("--batch", type=int, default=5, help="Number of records to process")
     args = parser.parse_args()
     
-    app = MatrixComposer()
-    app.run(target_slug=args.slug, batch_size=args.batch, force=args.force)
+    composer = MatrixComposer()
+    composer.run(target_slug=args.slug, batch_size=args.batch)
