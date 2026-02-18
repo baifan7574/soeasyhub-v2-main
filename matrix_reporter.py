@@ -14,13 +14,26 @@ class MatrixReporter:
     def __init__(self):
         url = os.environ.get('SUPABASE_URL')
         key = os.environ.get('SUPABASE_KEY')
+        zhipu_key = os.environ.get('ZHIPU_API_KEY')
         groq_key = os.environ.get('GROQ_API_KEY')
-        if not url or not key or not groq_key:
-            raise ValueError("Missing SUPABASE or GROQ environment variables.")
+        
+        if not url or not key:
+            raise ValueError("Missing SUPABASE environment variables.")
         
         self.supabase: Client = create_client(url, key)
-        self.client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
-        self.model = "llama-3.3-70b-versatile"
+        
+        # Priority: ZhipuAI > Groq
+        if zhipu_key:
+            print("🧠 [ZhipuAI GLM-4V] Engine selected for Audit Logic.")
+            self.client = OpenAI(api_key=zhipu_key, base_url="https://open.bigmodel.cn/api/paas/v4/")
+            self.model = "glm-4v"
+        elif groq_key:
+            print("🧠 [Groq Llama 3.3] Engine selected for Audit Logic.")
+            self.client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
+            self.model = "llama-3.3-70b-versatile"
+        else:
+            raise ValueError("Missing AI API key: set either ZHIPU_API_KEY or GROQ_API_KEY environment variable.")
+        
         print("🛡️ [Lead Auditor Engaged]")
 
     def fetch_refined_data(self, slug):
