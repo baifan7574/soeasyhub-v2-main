@@ -1,10 +1,12 @@
+"""SoEasyHub v2 Report Generator - Production Grade"""
 from openai import OpenAI
 import os
 
-# 1. 配置你的 DeepSeek API (使用你之前提供的 Key)
-client = OpenAI(api_key="sk-79789aa8ba3d433d8458eb0f6db3a462", base_url="https://api.deepseek.com")
+# Read from environment variables
+API_KEY = os.environ.get("DEEPSEEK_API_KEY", "MISSING_KEY_PLEASE_SET_ENV")
+client = OpenAI(api_key=API_KEY, base_url="https://api.deepseek.com")
 
-# 2. 核心数据 (这些就是脚本三提炼出的“金砖”)
+# 2. 核心数据 (这些就是脚本三提炼出的"金砖")
 refined_facts = {
     "target_state": "Texas",
     "fee": "$45 (Non-refundable)", #
@@ -17,41 +19,36 @@ refined_facts = {
 def generate_professional_report():
     print("🧠 正在调用 DeepSeek 进行专家级内容撰写...")
     
-    # 这里是让报告不再“糙”的关键：复杂的 Prompt 指令
-    prompt = f"""
-    你现在是一名专注美国职业准入的【资深法律顾问】。请基于以下真实政策数据，撰写一份交付给付费客户的《德州电工互认审计报告》。
-    
-    【核心事实数据】：
-    - 目标州: {refined_facts['target_state']}
-    - 法律依据: {refined_facts['law']}
-    - 费用: {refined_facts['fee']}
-    - 有效期: {refined_facts['time_limit']}
-    - 核心要求: {refined_facts['reciprocity_rule']}
-    - 关键表格: {refined_facts['no_ssn_path']}
+    # 这里是让报告不再"糙"的关键：复杂的 Prompt 指令
+    system_prompt = """你是一位专业的执照审计师，擅长撰写合规性报告。请基于提供的数据生成一份专业的审计报告，需要：
 
-    【撰写要求】：
-    1. 风格：极度专业、严谨、客观，体现出 $29.9 的咨询价值。
-    2. 结构：包含【风险对齐】、【执行路径图】、【材料准备清单】。
-    3. 深度：不要只列出数字，要解释这些数字背后的后果（例如：如果交错费用会损失钱财）。
-    4. 格式：使用清晰的 Markdown 标题和列表。
-    """
+1. 严格的事实导向：所有陈述必须基于提供的数据
+2. 专业的语言风格：使用正式的审计报告用语
+3. 清晰的结构化：分点列举关键发现
+4. 合规性强调：突出法律法规要求
+5. 风险提示：包含必要的免责声明"""
 
-    response = client.chat.completions.create(
-        model="deepseek-chat",
-        messages=[
-            {"role": "system", "content": "你是一名严谨的美国执照法律顾问。"},
-            {"role": "user", "content": prompt},
-        ],
-        stream=False
-    )
-    
-    report_content = response.choices[0].message.content
-    
-    # 保存结果
-    with open("Premium_Texas_Electrician_Report.md", "w", encoding="utf-8") as f:
-        f.write(report_content)
-    
-    print(f"✅ 专家级报告已生成：Premium_Texas_Electrician_Report.md")
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"请基于以下数据生成专业审计报告:\n\n{refined_facts}"}
+            ],
+            temperature=0.2,
+            max_tokens=2000
+        )
+        report = response.choices[0].message.content
+        
+        # 保存报告
+        with open("professional_audit_report.txt", "w", encoding="utf-8") as f:
+            f.write(report)
+        print("✅ 报告已生成并保存")
+        return report
+        
+    except Exception as e:
+        print(f"❌ 报告生成失败: {str(e)}")
+        return None
 
 if __name__ == "__main__":
     generate_professional_report()
