@@ -59,6 +59,11 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
+      - name: Setup Git Identity
+        run: |
+          git config --global user.name "Matrix Factory Bot"
+          git config --global user.email "bot@soeasyhub.com"
+
       - name: Phase 6 Matrix Deployer
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -67,10 +72,8 @@ jobs:
 
       - name: Commit and Push Changes
         run: |
-          git config --global user.name "Matrix Factory Bot"
-          git config --global user.email "bot@soeasyhub.com"
           git add .
-          git commit -m "Auto-update: Single Point Validation Success [skip ci]" || echo "No changes to commit"
+          git commit -m "Auto-update: Assets & Sitemap [skip ci]" || echo "No changes to commit"
           git push
 
   deploy-worker:
@@ -82,14 +85,12 @@ jobs:
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
-          # Using Global API Key via env vars instead of Token
           preCommands: |
             echo "--- Diagnosing Auth ---"
             wrangler whoami
             echo "--- Deploying Worker ---"
           command: deploy --var SUPABASE_KEY:${{ secrets.SUPABASE_KEY }}
         env:
-          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
-          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
-          # Trigger Run #17 with Global Key
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           WRANGLER_LOG: debug
