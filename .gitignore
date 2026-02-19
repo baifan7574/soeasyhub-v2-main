@@ -2,5 +2,6 @@
 .wrangler/
 __pycache__/
 *.pdf
+test_*.py
 .env
 node_modules/
