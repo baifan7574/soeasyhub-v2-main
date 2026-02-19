@@ -3,7 +3,7 @@ name: Matrix Production Factory (SoEasyHub v2)
 on:
   push:
     branches:
-      - main
+      - master
   workflow_dispatch:
 
 permissions:
