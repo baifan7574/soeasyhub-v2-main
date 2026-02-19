@@ -1,7 +1,8 @@
+"""SoEasyHub v2 Gemini Connectivity Test"""
 import google.generativeai as genai
 import os
 
-key = "AIzaSyDKxE8SebK1uBv3mU4nNCC2_h0BY_Zb88I"
+key = os.environ.get("GOOGLE_API_KEY", "MISSING_KEY_PLEASE_SET_ENV")
 genai.configure(api_key=key)
 
 print("Starting connectivity test...")
