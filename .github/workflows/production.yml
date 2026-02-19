@@ -90,7 +90,8 @@ jobs:
             echo "--- Diagnosing Auth ---"
             wrangler whoami
             echo "--- Deploying Worker ---"
-          command: deploy --var SUPABASE_KEY:${{ secrets.SUPABASE_KEY }}
+          # Emergency Fix: Restore Life-Line to Supabase
+          command: deploy --var SUPABASE_KEY:${{ secrets.SUPABASE_KEY }} --var SUPABASE_URL:${{ secrets.SUPABASE_URL }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
