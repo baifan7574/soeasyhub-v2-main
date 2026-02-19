@@ -3,16 +3,29 @@ import json
 import time
 import argparse
 import random
+import google.generativeai as genai
 from openai import OpenAI
 from supabase import create_client, Client
 import markdown
 
-# ================= Matrix Composer (The Composer) - HOLY BIBLE EDITION v2.1 =================
+# ================= Matrix Composer (The Composer) - HOLY BIBLE EDITION v2.2 =================
 # Status: Final Revision (Aligns with SKILL.md)
 # Features: HTML-Only Output, Persona Rotation, Anti-N/A Logic, Double CTA, Internal Siloing.
 # ============================================================================================
 
-TOKEN_FILE = os.path.join(os.path.dirname(__file__), ".agent", "Token..txt")  # Fallback for local development
+# Local Token Fallback logic
+def find_token_file():
+    paths = [
+        os.path.join(os.path.dirname(__file__), ".agent", "Token..txt"),
+        os.path.join(os.path.dirname(__file__), "..", ".agent", "Token..txt"),
+        os.path.join(".agent", "Token..txt")
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            return p
+    return None
+
+TOKEN_FILE = find_token_file()
 
 # Environment variable names for cloud deployment
 ENV_SUPABASE_URL = "SUPABASE_URL"
@@ -20,6 +33,7 @@ ENV_SUPABASE_KEY = "SUPABASE_KEY"
 ENV_DEEPSEEK_API_KEY = "DEEPSEEK_API_KEY"
 ENV_GROQ_API_KEY = "GROQ_API_KEY"
 ENV_ZHIPU_API_KEY = "ZHIPU_API_KEY"
+ENV_GOOGLE_API_KEY = "GOOGLE_API_KEY"
 
 class MatrixComposer:
     def __init__(self):
@@ -35,81 +49,67 @@ class MatrixComposer:
             "Independent Licensing Industry Observer"
         ]
         
-        if self.config.get('zhipu_key'):
-            print("✍️ [ZhipuAI Turbo] Engine: GLM-4V")
+        if self.config.get('google_key'):
+            print("[Gemini Pro] Engine: gemini-1.5-pro")
+            genai.configure(api_key=self.config['google_key'])
+            self.client_type = "google"
+            self.model = "gemini-1.5-pro"
+        elif self.config.get('zhipu_key'):
+            print("[ZhipuAI Turbo] Engine: GLM-4V")
             self.client = OpenAI(api_key=self.config['zhipu_key'], base_url="https://open.bigmodel.cn/api/paas/v4/", max_retries=3)
+            self.client_type = "openai"
             self.model = "glm-4v"
         elif self.config.get('groq_key'):
-             print("✍️ [Monetization Master] Engine: Groq Llama-3.3")
+             print("[Monetization Master] Engine: Groq Llama-3.3")
              self.client = OpenAI(api_key=self.config['groq_key'], base_url="https://api.groq.com/openai/v1", max_retries=3)
              self.model = "llama-3.3-70b-versatile"
         elif self.config.get('ds_key'):
-             print("✍️ [Content Heavyweight] Engine: DeepSeek-V3")
+             print("[Content Heavyweight] Engine: DeepSeek-V3")
              self.client = OpenAI(api_key=self.config['ds_key'], base_url="https://api.deepseek.com", max_retries=3)
+             self.client_type = "openai"
              self.model = "deepseek-chat"
         else:
-            raise ValueError("❌ Missing API Keys. Please set ZHIPU_API_KEY, GROQ_API_KEY or DEEPSEEK_API_KEY.")
+            raise ValueError("❌ Missing API Keys. Please set GOOGLE_API_KEY, ZHIPU_API_KEY, GROQ_API_KEY or DEEPSEEK_API_KEY.")
 
     def _load_config(self):
         config = {}
         
-        # Priority 1: Read from environment variables (cloud deployment)
+        # 宪法第一条：严禁依赖本地 Token..txt，必须优先读取环境变量
         supabase_url = os.environ.get(ENV_SUPABASE_URL)
         supabase_key = os.environ.get(ENV_SUPABASE_KEY)
         deepseek_key = os.environ.get(ENV_DEEPSEEK_API_KEY)
         groq_key = os.environ.get(ENV_GROQ_API_KEY)
         zhipu_key = os.environ.get(ENV_ZHIPU_API_KEY)
+        google_key = os.environ.get(ENV_GOOGLE_API_KEY)
         
         if supabase_url and supabase_key:
             config['url'] = supabase_url
             config['key'] = supabase_key
-            if zhipu_key:
-                config['zhipu_key'] = zhipu_key
-            elif groq_key:
-                config['groq_key'] = groq_key
-            elif deepseek_key:
-                config['ds_key'] = deepseek_key
-            print("✅ Config loaded from environment variables.")
+            config['google_key'] = google_key
+            config['zhipu_key'] = zhipu_key
+            config['groq_key'] = groq_key
+            config['ds_key'] = deepseek_key
+            print("✅ 宪法模式：配置已从环境变量加载。")
             return config
-        
-        # Priority 2: Fallback to local Token file (development)
-        search_paths = [
-            TOKEN_FILE,
-            os.path.join(".agent", "Token..txt"),
-            os.path.join("..", ".agent", "Token..txt")
-        ]
-        
-        token_path = None
-        for p in search_paths:
-            if os.path.exists(p):
-                token_path = p
-                break
-        
-        if not token_path:
-            raise FileNotFoundError(
-                f"Critical: Token..txt not found and environment variables {ENV_SUPABASE_URL}/{ENV_SUPABASE_KEY} not set."
-            )
-        
-        with open(token_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line: continue
-                if "Project URL:" in line:
-                    config['url'] = line.split("URL:")[1].strip()
-                if "Secret keys:" in line:
-                    config['key'] = line.split("keys:")[1].strip()
-                if "ZHIPUAPI:" in line:
-                    config['zhipu_key'] = line.split("ZHIPUAPI:")[1].strip()
-                if "DSAPI:" in line:
-                    config['ds_key'] = line.split("DSAPI:")[1].strip()
-                if "groqapi" in line:
-                    config['groq_key'] = line.split(":")[1].strip()
-        
-        if 'url' not in config or 'key' not in config:
-            raise ValueError("Configuration incomplete. Check Token..txt or environment variables.")
-        
-        print("⚠️  Config loaded from local Token file (development mode).")
-        return config
+
+        # Priority 2: Fallback to local Token file (development only)
+        if TOKEN_FILE and os.path.exists(TOKEN_FILE):
+            print(f"[WARN] No environment variables detected, reading local {TOKEN_FILE}...")
+            with open(TOKEN_FILE, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if "Project URL:" in line: config['url'] = line.split("URL:")[1].strip()
+                    if "Secret keys:" in line: config['key'] = line.split("keys:")[1].strip()
+                    if "GOOGLE_API_KEY:" in line: config['google_key'] = line.split("KEY:")[1].strip()
+                    if "DSAPI:" in line: config['ds_key'] = line.split("DSAPI:")[1].strip()
+                    if "groqapi" in line: config['groq_key'] = line.split(":")[1].strip()
+            
+            if config.get('url') and config.get('key'):
+                return config
+
+        raise ValueError(
+            f"❌ 关键错误：未找到环境变量 {ENV_SUPABASE_URL}/{ENV_SUPABASE_KEY} 且本地 Token 文件无效。"
+        )
 
     def fetch_records(self, target_slug=None, limit=5, force=False):
         query = self.supabase.table("grich_keywords_pool").select("*")
@@ -182,41 +182,50 @@ class MatrixComposer:
         - Conclusion & Final CTA
         """
 
-        try:
-            print(f"   🧠 [Persona: {current_persona}] Writing {keyword} (HTML Injection)...")
-            
-            engines = []
-            if self.config.get('groq_key'): engines.append(('Groq', self.config['groq_key'], "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"))
-            if self.config.get('ds_key'): engines.append(('DeepSeek', self.config['ds_key'], "https://api.deepseek.com", "deepseek-chat"))
-            
-            random.shuffle(engines)
-            
-            for attempt in range(2): 
-                for engine_name, api_key, base_url, model_name in engines:
-                    try:
-                        temp_client = OpenAI(api_key=api_key, base_url=base_url)
-                        response = temp_client.chat.completions.create(
-                            model=model_name,
-                            messages=[
-                                {"role": "system", "content": "You are a world-class SEO technical writer and compliance expert. You output raw HTML only. No Markdown."},
-                                {"role": "user", "content": prompt},
-                            ],
-                            timeout=300
-                        )
-                        content = response.choices[0].message.content
-                        # Clean potential code blocks
-                        if "```html" in content: content = content.replace("```html", "").replace("```", "")
-                        elif "```" in content: content = content.replace("```", "")
-                        return content.strip()
-                    except Exception as engine_err:
-                        print(f"   ❌ {engine_name} Error: {engine_err}")
-                        continue
-                time.sleep(10)
-            
-            return None
-        except Exception as e:
-            print(f"   ❌ Critical Composer Error: {e}")
-            return None
+        # 减压逻辑：强制等待 5 秒
+        print(f"   [Cooling Down] Waiting 5s before AI call...")
+        time.sleep(5)
+
+        print(f"   [Persona: {current_persona}] Writing {keyword} (HTML Injection)...")
+        
+        # Retry logic: 3 attempts
+        for attempt in range(3):
+            try:
+                if self.client_type == "google":
+                    model = genai.GenerativeModel(self.model)
+                    response = model.generate_content(
+                        f"SYSTEM: You are a world-class SEO technical writer and compliance expert. You output raw HTML only. No Markdown.\n\nUSER: {prompt}",
+                        generation_config={"temperature": 0.7}
+                    )
+                    content = response.text
+                else:
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": "You are a world-class SEO technical writer and compliance expert. You output raw HTML only. No Markdown."},
+                            {"role": "user", "content": prompt},
+                        ],
+                        timeout=300
+                    )
+                    content = response.choices[0].message.content
+                
+                # Clean potential code blocks
+                if "```html" in content: content = content.replace("```html", "").replace("```", "")
+                elif "```" in content: content = content.replace("```", "")
+                
+                return content.strip()
+                
+            except Exception as e:
+                print(f"   [Attempt {attempt+1}/3] AI Error for {keyword}: {str(e)}")
+                if attempt < 2:
+                    wait_time = 10 * (attempt + 1)
+                    print(f"   [RETRYING] Waiting {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    print(f"   [FAILED] All retries exhausted for {keyword}. Error: {str(e)}")
+                    return None
+        
+        return None
 
     def _ensure_html(self, content):
         """强制将任何Markdown内容转换为HTML，防止前端显示##乱码"""
@@ -236,10 +245,10 @@ class MatrixComposer:
                     # 二次清理：基本替换作为后备
                     html_content = html_content.replace("## ", "<h2>").replace("**", "<strong>")
                 
-                print(f"   🔧 Markdown->HTML转换完成: {len(content)} -> {len(html_content)} 字符")
+                print(f"   [CONVERSION] Markdown->HTML complete: {len(content)} -> {len(html_content)} chars")
                 return html_content
         except Exception as e:
-            print(f"   ⚠️ Markdown转换失败: {e}, 使用原始内容")
+            print(f"   [WARN] Markdown conversion failed: {e}, using original")
         
         # 后备方案：基本清理
         cleaned = content
@@ -260,9 +269,9 @@ class MatrixComposer:
             print("💤 No tasks.")
             return
 
-        print(f"🚀 [Batch Injection] Starting {len(records)} articles...")
+        print(f"[Batch Injection] Starting {len(records)} articles...")
         for record in records:
-            print(f"\n✍️ [Working] {record['slug']}")
+            print(f"\n[Working] {record['slug']}")
             article = self.compose_article(record)
             if article:
                 # 强制HTML转换：确保没有任何Markdown残留
@@ -271,9 +280,9 @@ class MatrixComposer:
                 self.supabase.table("grich_keywords_pool").update({
                     "final_article": article
                 }).eq("id", record['id']).execute()
-                print(f"   ✅ [Inject Success] Chars: {len(article)}")
+                print(f"   [Inject Success] Chars: {len(article)}")
             else:
-                print(f"   ⚠️ [Skipped] Failed to compose {record['slug']}")
+                print(f"   [Skipped] Failed to compose {record['slug']}")
             time.sleep(2)
 
 if __name__ == "__main__":
