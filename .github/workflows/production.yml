@@ -86,11 +86,12 @@ jobs:
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           preCommands: |
             echo "--- Diagnosing Auth ---"
             wrangler whoami
             echo "--- Deploying Worker ---"
-          # Emergency Fix: Restore Life-Line to Supabase
           command: deploy
           secrets: |
             SUPABASE_URL
