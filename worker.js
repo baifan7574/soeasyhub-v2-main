@@ -382,7 +382,11 @@ export default {
                 const metaDesc = `Download the 2026 Official ${title} Audit Report. Validated state requirements.`;
                 html = html.replace("{{METADATA}}", `<meta name="description" content="${metaDesc}">`);
 
-                return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+                return new Response(html, {
+                    headers: {
+                        "content-type": "text/html;charset=UTF-8",
+                    },
+                });
             }
 
             // Fallback to static or home (Keep this external fetch for index/other pages if needed, or inline index as well? 
@@ -394,6 +398,14 @@ export default {
             
             const staticRes = await fetch(`https://raw.githubusercontent.com/baifan7574/soeasyhub-v2-main/main${path === '/' ? '/index.html' : path}`);
             if (staticRes.ok) {
+                 if (path === '/' || path.endsWith('.html')) {
+                     const text = await staticRes.text();
+                     return new Response(text, {
+                         headers: {
+                             "content-type": "text/html;charset=UTF-8",
+                         },
+                     });
+                 }
                  return staticRes;
             } else {
                  return new Response("Page not found (Static Fallback)", { status: 404 });
