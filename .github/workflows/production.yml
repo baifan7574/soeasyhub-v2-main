@@ -97,7 +97,7 @@ jobs:
       - name: Upload Secrets to Worker
         run: |
           echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL || true
-          echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY || true
+          echo "${{ secrets.SUPABASE_KEY }}" | npx wrangler secret put SUPABASE_KEY || true
         env:
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}

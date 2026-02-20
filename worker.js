@@ -322,13 +322,11 @@ export default {
         const path = url.pathname;
         const SB_URL = env.SUPABASE_URL || "https://nbfzhxgkfljeuoncujum.supabase.co";
         
-        // Config Fix: Attempt to read SUPABASE_SERVICE_ROLE_KEY, fallback to SUPABASE_KEY
-        // If neither exists, we can't proceed.
-        const SB_KEY = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_KEY;
+        // Strict config usage as per highest priority directive
+        const SB_KEY = env.SUPABASE_KEY;
 
         if (!SB_KEY) {
-            // Detailed error for debugging deployment
-            return new Response("Error: Config missing. SUPABASE_KEY and SUPABASE_SERVICE_ROLE_KEY are both undefined.", { status: 500 });
+            return new Response("Error: Config missing (SUPABASE_KEY)", { status: 500 });
         }
 
         try {
