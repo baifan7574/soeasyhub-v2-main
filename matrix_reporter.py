@@ -194,7 +194,7 @@ class MatrixReporter:
 - **EMERGENCY WAIVERS**: Mention any "expedited" or "fast-track" options (if applicable)
 
 ### 6. PDF VISUAL PROTOCOL (Your output will be rendered as PDF)
-- **HEADER**: Left: [GRICH AUDIT #{hash(keyword)[:8]}] | Right: [STRICTLY CONFIDENTIAL]
+- **HEADER**: Left: [GRICH AUDIT #{str(abs(hash(keyword)))[:8]}] | Right: [STRICTLY CONFIDENTIAL]
 - **WATERMARK**: Every section background should conceptually have "2026 OFFICIAL AUDIT"
 - **21-POINT AUDIT TABLE**: Create a table with 21 checklist items (use your judgment for relevant points)
 - **RED LEGAL DISCLAIMER BOX**: Must contain financial risk warning in bold red border
