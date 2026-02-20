@@ -213,7 +213,7 @@ class MatrixReporter:
 ## == OUTPUT FORMAT REQUIREMENTS ==
 Your output MUST follow this EXACT structure:
 
-### [GRICH AUDIT #{hash(keyword)[:8]}] | [STRICTLY CONFIDENTIAL]
+### [GRICH AUDIT #{str(abs(hash(keyword)))[:8]}] | [STRICTLY CONFIDENTIAL]
 ### Data Verified as of: {fetch_date}
 
 ## 1. PASS/FAIL AUDIT VERDICT
