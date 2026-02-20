@@ -1,12 +1,12 @@
 /**
- * soeasyhub-v2 Cloudflare Worker (Production Grade - V3.1)
+ * soeasyhub-v2 Cloudflare Worker (Production Grade - V3.2)
  * Monorepo & Supabase Native Integration
- * 
+ *
  * Features:
- * - Dynamic Home Grid (Top 100)
+ * - Dynamic Home Grid (Top 100 from DB)
  * - Detail Page Rendering (Markdown -> HTML)
  * - Monetization Hooks (Payhip $29.99)
- * - Dark Mode Styling
+ * - Dark Mode Styling (Hero Section & Responsive Grid)
  * - Zero Dependencies (Raw Fetch)
  * - AdSense Placeholder (Skill 2 Compliance)
  */
@@ -17,7 +17,7 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{TITLE}} | SoEasyHub 2026 Audit</title>
-    {{METADATA}}
+    <meta name="description" content="{{DESCRIPTION}}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -29,6 +29,7 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
             --text-muted: #94a3b8;
             --bg: #020617;
             --border: #334155;
+            --card-bg: #1e293b;
         }
 
         body {
@@ -41,7 +42,7 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
 
         /* ===== HEADER ===== */
         .header {
-            background: rgba(15, 23, 42, 0.8);
+            background: rgba(15, 23, 42, 0.9);
             backdrop-filter: blur(10px);
             border-bottom: 1px solid var(--border);
             position: sticky;
@@ -77,24 +78,13 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
             font-size: 0.8em;
         }
 
-        .back-link {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.2s;
-        }
-
-        .back-link:hover {
-            color: var(--primary);
-        }
-
         /* ===== HERO SECTION ===== */
         .hero {
             text-align: center;
             padding: 80px 20px;
             background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
             border-bottom: 1px solid var(--border);
+            margin-bottom: 40px;
         }
 
         .hero h1 {
@@ -106,8 +96,8 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
         }
 
         .hero p {
-            font-size: 1.2rem;
             color: var(--text-muted);
+            font-size: 1.2rem;
             max-width: 600px;
             margin: 0 auto;
         }
@@ -115,22 +105,22 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
         /* ===== GRID LAYOUT ===== */
         .container {
             max-width: 1200px;
-            margin: 40px auto;
-            padding: 0 20px;
+            margin: 0 auto;
+            padding: 0 20px 60px 20px;
         }
 
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
+            gap: 24px;
         }
 
         .card {
-            background: var(--dark-surface);
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 20px;
-            transition: transform 0.2s, border-color 0.2s;
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
             display: flex;
             flex-direction: column;
             text-decoration: none;
@@ -139,334 +129,367 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
 
         .card:hover {
             transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             border-color: var(--primary);
         }
 
+        .card-meta {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
         .card-tag {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            background: rgba(249, 115, 22, 0.1);
             color: var(--primary);
-            font-weight: 700;
-            margin-bottom: 10px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
         }
 
         .card h3 {
-            margin: 0 0 10px 0;
-            font-size: 1.2rem;
+            margin: 0 0 12px 0;
+            font-size: 1.25rem;
             line-height: 1.4;
-            color: white;
         }
 
-        .card-meta {
-            margin-top: auto;
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.85rem;
+        .card p {
             color: var(--text-muted);
-            border-top: 1px solid rgba(255,255,255,0.05);
-            padding-top: 15px;
+            font-size: 0.95rem;
+            margin: 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
 
-        /* ===== DETAIL PAGE ===== */
-        .paper {
-            background: var(--dark-surface);
-            padding: 50px;
-            border-radius: 16px;
-            border: 1px solid var(--border);
+        /* ===== ARTICLE DETAIL ===== */
+        .article-container {
             max-width: 800px;
-            margin: 0 auto;
+            margin: 40px auto;
+            padding: 0 20px;
         }
 
-        .audit-meta {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
+        .article-content {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
         }
 
-        .meta-tag {
-            background: rgba(255,255,255,0.05);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        h1.article-title {
+        .article-content h1 {
             font-size: 2.5rem;
-            margin-bottom: 30px;
+            margin-bottom: 1rem;
             line-height: 1.2;
         }
 
-        /* Content Styling */
-        .content h2 {
+        .article-meta {
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .article-body {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #cbd5e1;
+        }
+        
+        .article-body h2 {
             color: white;
-            border-left: 4px solid var(--primary);
-            padding-left: 15px;
-            margin-top: 40px;
+            margin-top: 2rem;
         }
-
-        .content h3 {
-            color: #e2e8f0;
-            margin-top: 30px;
-        }
-
-        .content a {
+        
+        .article-body a {
             color: var(--primary);
         }
 
-        .content ul, .content ol {
-            padding-left: 20px;
-            color: var(--text-muted);
-        }
-        
-        .content li {
-            margin-bottom: 8px;
-        }
-
-        .content p {
-            color: #cbd5e1;
-        }
-
-        /* Action Box */
-        .action-box {
-            background: linear-gradient(135deg, rgba(249, 115, 22, 0.1) 0%, rgba(15, 23, 42, 0.5) 100%);
-            border: 1px solid rgba(249, 115, 22, 0.3);
-            border-radius: 12px;
-            padding: 30px;
-            margin: 50px 0;
+        /* ===== MONETIZATION HOOK ===== */
+        .payhip-box {
+            background: linear-gradient(135deg, rgba(249,115,22,0.1) 0%, rgba(15,23,42,0.3) 100%);
+            border: 1px solid var(--primary);
+            border-radius: 8px;
+            padding: 24px;
+            margin: 40px 0;
             text-align: center;
         }
 
-        .btn-download {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+        .payhip-btn {
+            display: inline-block;
             background: var(--primary);
             color: white;
-            padding: 16px 40px;
-            border-radius: 50px;
             font-weight: 700;
-            font-size: 1.1rem;
+            padding: 12px 30px;
+            border-radius: 6px;
             text-decoration: none;
-            transition: 0.2s;
-            margin-top: 20px;
-        }
-
-        .btn-download:hover {
-            background: var(--primary-hover);
-            transform: scale(1.02);
-            box-shadow: 0 0 20px rgba(249, 115, 22, 0.4);
-        }
-
-        .secure-badge {
             margin-top: 15px;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
+            transition: background 0.2s;
+            font-size: 1.1rem;
         }
 
-        /* AdSense Slot */
-        .ad-slot {
-            display: {{ADS_DISPLAY}};
-            background: rgba(255,255,255,0.02);
-            border: 1px dashed var(--border);
-            padding: 20px;
-            text-align: center;
-            margin: 30px 0;
-            color: var(--text-muted);
-            font-size: 0.8rem;
+        .payhip-btn:hover {
+            background: var(--primary-hover);
         }
 
+        .price-tag {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 8px;
+        }
+        
+        /* Footer */
         .footer {
             text-align: center;
-            padding: 60px 0;
+            padding: 40px 20px;
             color: var(--text-muted);
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             border-top: 1px solid var(--border);
-            margin-top: 80px;
-        }
-
-        @media (max-width: 640px) {
-            .paper { padding: 20px; }
-            h1.article-title { font-size: 1.8rem; }
-            .grid { grid-template-columns: 1fr; }
+            margin-top: 60px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
+    <header class="header">
         <div class="nav-inner">
-            <a href="/" class="logo">SoEasyHub <span>PRO</span></a>
-            {{NAV_LINK}}
+            <a href="/" class="logo">SoEasyHub <span>AUDIT</span></a>
+            <div>
+                <a href="/" class="back-link">Home</a>
+            </div>
         </div>
-    </div>
+    </header>
 
-    {{BODY_CONTENT}}
+    {{CONTENT}}
 
-    <div class="footer">
-        © 2026 SoEasyHub Compliance Network.<br>
-        Official 3rd-Party Audit. Not affiliated with government agencies.
-    </div>
+    <footer class="footer">
+        <p>&copy; 2026 SoEasyHub Audit Systems. All Rights Reserved.</p>
+        <p>Disclaimer: Not legal advice. For informational purposes only.</p>
+    </footer>
 </body>
-</html>
-`;
-
-function markdownToHtml(md) {
-    if (!md) return '';
-    let html = md;
-    // Basic Markdown Parsing
-    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-    html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-    html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-    html = html.replace(/\n{2,}/g, '</p><p>');
-    html = html.replace(/\n/g, '<br>');
-    html = '<p>' + html + '</p>';
-    // Cleanup
-    html = html.replace(/<p>\s*<(h[1-3]|ul|li)/g, '<$1');
-    html = html.replace(/<\/(h[1-3]|ul|li)>\s*<\/p>/g, '</$1>');
-    html = html.replace(/<p>\s*<\/p>/g, '');
-    return html;
-}
+</html>`;
 
 export default {
-    async fetch(request, env) {
-        const url = new URL(request.url);
-        const path = url.pathname;
-        const SB_URL = env.SUPABASE_URL;
-        const SB_KEY = env.SUPABASE_KEY;
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const path = url.pathname;
 
-        if (!SB_URL || !SB_KEY) {
-            return new Response("Critical Error: Missing Database Config", { status: 500 });
-        }
+    // Supabase Config (from Environment Variables)
+    const SUPABASE_URL = env.SUPABASE_URL;
+    const SUPABASE_KEY = env.SUPABASE_KEY;
 
-        const headers = {
-            "apikey": SB_KEY,
-            "Authorization": `Bearer ${SB_KEY}`,
-            "Content-Type": "application/json"
-        };
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      return new Response("Configuration Error: Missing Database Credentials", { status: 500 });
+    }
 
-        try {
-            // === HOME PAGE ===
-            if (path === "/" || path === "/index.html") {
-                const sb_res = await fetch(`${SB_URL}/rest/v1/grich_keywords_pool?select=slug,keyword,category,state&final_article=not.is.null&order=is_refined.desc,last_mined_at.desc&limit=100`, { headers });
-                
-                if (!sb_res.ok) throw new Error(`DB Error: ${sb_res.status}`);
-                const articles = await sb_res.json();
+    // Helper: Supabase Fetch
+    async function supabaseFetch(endpoint, options = {}) {
+      const headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        ...options.headers
+      };
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
+        ...options,
+        headers
+      });
+      if (!response.ok) {
+        throw new Error(`Supabase Error: ${response.status} ${response.statusText}`);
+      }
+      return response.json();
+    }
 
-                let gridHtml = `<div class="hero">
-                    <h1>License Compliance made Simple.</h1>
-                    <p>Access 2026 Official Audit Reports for Cross-State Licensing Reciprocity.</p>
+    // === ROUTE 1: HOME PAGE (Grid) ===
+    if (path === "/" || path === "/index.html") {
+      try {
+        // Query: Get top 100 articles (where final_article is not null)
+        // Fields: id, slug, keyword, category, last_mined_at
+        const data = await supabaseFetch(
+          `grich_keywords_pool?select=id,slug,keyword,category,last_mined_at&final_article=not.is.null&order=last_mined_at.desc&limit=100`
+        );
+
+        let gridHtml = "";
+        
+        if (data.length === 0) {
+            gridHtml = `<div style="text-align:center; padding: 40px;">No audit reports published yet.</div>`;
+        } else {
+            gridHtml = `<div class="container">
+                <div class="hero">
+                    <h1>Regulatory Compliance Hub</h1>
+                    <p>Instant access to 2026 state-level reciprocity audits and licensing guides.</p>
                 </div>
-                <div class="container"><div class="grid">`;
+                <div class="grid">`;
 
-                articles.forEach(art => {
-                    const category = art.category !== 'Uncategorized' ? art.category : (art.state || 'General');
-                    gridHtml += `
-                    <a href="/p/${art.slug}" class="card">
-                        <div class="card-tag">${category}</div>
-                        <h3>${art.keyword}</h3>
-                        <div class="card-meta">
-                            <span>${art.state || 'US'}</span>
-                            <span>2026 Audit</span>
-                        </div>
-                    </a>`;
-                });
-                gridHtml += `</div></div>`;
-
-                let html = HTML_TEMPLATE.replace("{{TITLE}}", "Home");
-                html = html.replace("{{METADATA}}", `<meta name="description" content="Official 2026 Reciprocity Audit Reports for Nursing, Teaching, Medical, and Trade Licenses across 50 States.">`);
-                html = html.replace("{{NAV_LINK}}", "");
-                html = html.replace("{{BODY_CONTENT}}", gridHtml);
-                html = html.replace("{{ADS_DISPLAY}}", "none"); // No Ads on Home
+            data.forEach(item => {
+                // Infer State from Keyword (Simple Heuristic)
+                let state = "US";
+                const states = ["California", "Texas", "Florida", "New York", "Illinois", "Ohio", "Georgia", "North Carolina", "Michigan", "New Jersey", "Virginia", "Washington", "Arizona", "Massachusetts", "Tennessee", "Indiana", "Missouri", "Maryland", "Wisconsin", "Colorado", "Minnesota", "South Carolina", "Alabama", "Louisiana", "Kentucky", "Oregon", "Oklahoma", "Connecticut", "Utah", "Iowa", "Nevada", "Arkansas", "Mississippi", "Kansas", "New Mexico", "Nebraska", "Idaho", "West Virginia", "Hawaii", "New Hampshire", "Maine", "Rhode Island", "Montana", "Delaware", "South Dakota", "North Dakota", "Alaska", "Vermont", "Wyoming"];
                 
-                return new Response(html, { headers: { "content-type": "text/html;charset=UTF-8" } });
-            }
-
-            // === DETAIL PAGE ===
-            if (path.startsWith("/p/")) {
-                const slug = path.split("/p/")[1];
-                const sb_res = await fetch(`${SB_URL}/rest/v1/grich_keywords_pool?slug=eq.${slug}&select=*`, { headers });
-                
-                if (!sb_res.ok) throw new Error(`DB Error: ${sb_res.status}`);
-                const data = await sb_res.json();
-                
-                if (!data || data.length === 0) {
-                    return new Response("Audit Report Not Found (Queued for production)", { status: 404 });
+                for (const s of states) {
+                    if (item.keyword.toLowerCase().includes(s.toLowerCase())) {
+                        state = s;
+                        break;
+                    }
                 }
 
-                const record = data[0];
-                const title = record.keyword;
-                const contentHtml = markdownToHtml(record.final_article);
-                const payhipLink = `https://payhip.com/b/qoGLF?product_id=${slug}`;
+                const date = item.last_mined_at ? new Date(item.last_mined_at).toLocaleDateString() : "2026-02-20";
+                const title = item.keyword.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-                const detailHtml = `
-                <div class="container">
-                    <div class="paper">
-                        <div class="audit-meta">
-                            <span class="meta-tag">Status: Active</span>
-                            <span class="meta-tag">Updated: 2026</span>
-                            <span class="meta-tag">${record.state || 'Federal'}</span>
-                        </div>
-                        <h1 class="article-title">${title}</h1>
-                        <div class="content">
-                            <!-- Ad Slot 1 -->
-                            <div class="ad-slot">Sponsored Content</div>
-                            
-                            ${contentHtml}
-                            
-                            <!-- MONETIZATION HOOK -->
-                            <div class="action-box">
-                                <h3 style="color:#f97316; margin-top:0;">📥 Official 2026 Audit Report (PDF)</h3>
-                                <p style="color:#cbd5e1;">Get the complete application package including hidden reciprocity rules, fee tables, and direct contact list.</p>
-                                <a href="${payhipLink}" class="btn-download">Download Full Report ($29.99)</a>
-                                <div class="secure-badge">🔒 Secure Payment via Payhip • Instant Delivery</div>
-                            </div>
-                        </div>
+                gridHtml += `
+                <a href="/p/${item.slug}" class="card">
+                    <div class="card-meta">
+                        <span class="card-tag">${state.toUpperCase()}</span>
+                        <span>${date}</span>
                     </div>
-                </div>`;
+                    <h3>${title}</h3>
+                    <p>Comprehensive audit report regarding ${item.keyword} requirements and compliance standards for ${state}.</p>
+                </a>`;
+            });
 
-                let html = HTML_TEMPLATE.replace("{{TITLE}}", title);
-                html = html.replace("{{METADATA}}", `<meta name="description" content="Download the 2026 Official ${title} Audit Report. Validated state requirements.">`);
-                html = html.replace("{{NAV_LINK}}", `<a href="/" class="back-link">← All Audits</a>`);
-                html = html.replace("{{BODY_CONTENT}}", detailHtml);
-                
-                // Ads Logic
-                const adsDisplay = env.ADSENSE_ID ? "block" : "none";
-                html = html.replace("{{ADS_DISPLAY}}", adsDisplay);
+            gridHtml += `</div></div>`;
+        }
 
-                return new Response(html, { headers: { "content-type": "text/html;charset=UTF-8" } });
-            }
+        const html = HTML_TEMPLATE
+            .replace('{{TITLE}}', 'Home')
+            .replace('{{DESCRIPTION}}', 'Access thousands of regulatory compliance audit reports.')
+            .replace('{{METADATA}}', '')
+            .replace('{{CONTENT}}', gridHtml);
 
-            // === SITEMAP ===
-            if (path === "/sitemap.xml") {
-                 const sb_res = await fetch(`${SB_URL}/rest/v1/grich_keywords_pool?select=slug,last_mined_at&final_article=not.is.null&limit=1000`, { headers });
-                 const articles = await sb_res.json();
-                 
-                 let xml = `<?xml version="1.0" encoding="UTF-8"?>
-                 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-                    <url><loc>https://soeasyhub.com/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>`;
-                 
-                 articles.forEach(art => {
-                     xml += `<url><loc>https://soeasyhub.com/p/${art.slug}</loc><lastmod>${art.last_mined_at.split('T')[0]}</lastmod><priority>0.8</priority></url>`;
-                 });
-                 
-                 xml += `</urlset>`;
-                 return new Response(xml, { headers: { "content-type": "application/xml" } });
-            }
+        return new Response(html, {
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
 
-            return new Response("Not Found", { status: 404 });
+      } catch (err) {
+        return new Response(`Error loading home: ${err.message}`, { status: 500 });
+      }
+    }
 
-        } catch (e) {
-            return new Response(`System Error: ${e.message}`, { status: 500 });
+    // === ROUTE 2: DETAIL PAGE (/p/{slug}) ===
+    if (path.startsWith("/p/")) {
+      const slug = path.split("/p/")[1];
+      
+      if (!slug) return new Response("Invalid Slug", { status: 400 });
+
+      try {
+        // Query: Get article content
+        const data = await supabaseFetch(
+            `grich_keywords_pool?select=keyword,final_article,last_mined_at,category&slug=eq.${slug}&limit=1`
+        );
+
+        if (data.length === 0) {
+            return new Response("Article Not Found", { status: 404 });
+        }
+
+        const article = data[0];
+        const title = article.keyword.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        const date = article.last_mined_at ? new Date(article.last_mined_at).toLocaleDateString() : "2026-02-20";
+
+        // Monetization Hook
+        const monetizationBlock = `
+        <div class="payhip-box">
+            <div class="price-tag">$29.99</div>
+            <h3>Download Official PDF Audit Report</h3>
+            <p>Get the full certified PDF version with stamps, raw data tables, and print-ready formatting.</p>
+            <a href="https://payhip.com/b/YOUR_PRODUCT_ID?product_id=${slug}" class="payhip-btn">Buy Now & Download</a>
+            <p style="font-size: 0.8rem; margin-top: 10px; color: #94a3b8;">Secure Payment via Stripe/PayPal</p>
+        </div>`;
+
+        // Inject Monetization into Content (Top 30% and Bottom)
+        let content = article.final_article || "<p>Content pending...</p>";
+        
+        // Remove existing HTML/Head/Body tags if present (since we wrap it)
+        content = content.replace(/<!DOCTYPE html>/gi, '')
+                         .replace(/<html.*?>/gi, '')
+                         .replace(/<\/html>/gi, '')
+                         .replace(/<head>[\s\S]*?<\/head>/gi, '') // Remove head completely
+                         .replace(/<body.*?>/gi, '')
+                         .replace(/<\/body>/gi, '');
+
+        // Naive Injection: Find the 3rd <h2> or 3rd <p>
+        // Better: Append to end, and insert after first significant block
+        const paragraphs = content.split('</p>');
+        if (paragraphs.length > 5) {
+            // Insert after 30%
+            const injectIndex = Math.floor(paragraphs.length * 0.3);
+            paragraphs.splice(injectIndex, 0, monetizationBlock);
+            content = paragraphs.join('</p>');
+        } else {
+            content = content + monetizationBlock;
+        }
+        
+        // Append at bottom too if long enough
+        if (paragraphs.length > 10) {
+            content += monetizationBlock;
+        }
+
+        const articleHtml = `
+        <div class="article-container">
+            <div class="article-content">
+                <div class="article-meta">
+                    <span>${article.category || 'Compliance'}</span> • <span>${date}</span>
+                </div>
+                <h1>${title}</h1>
+                <div class="article-body">
+                    ${content}
+                </div>
+            </div>
+        </div>`;
+
+        const html = HTML_TEMPLATE
+            .replace('{{TITLE}}', title)
+            .replace('{{DESCRIPTION}}', `Compliance audit for ${title}.`)
+            .replace('{{METADATA}}', `<meta name="robots" content="index, follow">`)
+            .replace('{{CONTENT}}', articleHtml);
+
+        return new Response(html, {
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+
+      } catch (err) {
+         return new Response(`Error loading article: ${err.message}`, { status: 500 });
+      }
+    }
+
+    // === ROUTE 3: SITEMAP.XML ===
+    if (path === "/sitemap.xml") {
+        try {
+            const data = await supabaseFetch(
+                `grich_keywords_pool?select=slug,last_mined_at&final_article=not.is.null&limit=1000`
+            );
+            
+            let xml = `<?xml version="1.0" encoding="UTF-8"?>
+            <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+                <url>
+                    <loc>https://soeasyhub.com/</loc>
+                    <changefreq>daily</changefreq>
+                    <priority>1.0</priority>
+                </url>`;
+            
+            data.forEach(item => {
+                xml += `
+                <url>
+                    <loc>https://soeasyhub.com/p/${item.slug}</loc>
+                    <lastmod>${item.last_mined_at ? item.last_mined_at.split('T')[0] : '2026-02-20'}</lastmod>
+                    <changefreq>weekly</changefreq>
+                    <priority>0.8</priority>
+                </url>`;
+            });
+            
+            xml += `</urlset>`;
+            
+            return new Response(xml, {
+                headers: { "Content-Type": "application/xml" }
+            });
+
+        } catch (err) {
+            return new Response("Error generating sitemap", { status: 500 });
         }
     }
+
+    // Fallback
+    return new Response("Not Found", { status: 404 });
+  },
 };
