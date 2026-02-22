@@ -208,6 +208,36 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
         }
 
         /* ===== MONETIZATION HOOK ===== */
+        /* 1. NUCLEAR OPTION: Hide Old Buttons */
+        .audit-cta, .promo-box, .cta-container, .payhip-button {
+            display: none !important;
+        }
+
+        /* 2. NEW MATRIX BUTTON STYLE */
+        .matrix-official-btn {
+            display: block !important;
+            width: 100%;
+            max-width: 400px;
+            margin: 2rem auto;
+            padding: 16px 24px;
+            background: #f97316; /* 亮橙色 */
+            color: #ffffff !important; /* 强制白字 */
+            text-align: center;
+            font-weight: 800;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 15px rgba(249, 115, 22, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .matrix-official-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(249, 115, 22, 0.6);
+            background: #ea580c;
+        }
+
+        /* Legacy styles kept for reference but overridden */
         .payhip-box {
             background: linear-gradient(135deg, rgba(249,115,22,0.1) 0%, rgba(15,23,42,0.3) 100%);
             border: 1px solid var(--primary);
@@ -390,8 +420,8 @@ export default {
         // Monetization Hook
         // UPDATED: Simple CTA Button as requested
         const monetizationBlock = `
-        <div class="payhip-box" style="text-align: center; margin: 40px 0;">
-            <a href="https://payhip.com/b/qoGLF?product_id=${slug}" class="cta-button" target="_blank" style="display: inline-block; background: #f97316; color: white; font-weight: 700; padding: 15px 30px; border-radius: 6px; text-decoration: none; font-size: 1.2rem;">
+        <div class="payhip-box-v2" style="text-align: center; margin: 40px 0;">
+            <a href="https://payhip.com/b/qoGLF?product_id=${slug}" class="matrix-official-btn" target="_blank">
               UNLOCK OFFICIAL AUDIT REPORT ($29.99)
             </a>
             <p style="font-size: 0.9rem; margin-top: 10px; color: #94a3b8;">Secure Payment via Stripe/PayPal • Instant PDF Download</p>
