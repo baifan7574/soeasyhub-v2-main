@@ -388,13 +388,13 @@ export default {
         const date = article.last_mined_at ? new Date(article.last_mined_at).toLocaleDateString() : "2026-02-20";
 
         // Monetization Hook
+        // UPDATED: Simple CTA Button as requested
         const monetizationBlock = `
-        <div class="payhip-box">
-            <div class="price-tag">$29.99</div>
-            <h3>Download Official PDF Audit Report</h3>
-            <p>Get the full certified PDF version with stamps, raw data tables, and print-ready formatting.</p>
-            <a href="https://payhip.com/b/YOUR_PRODUCT_ID?product_id=${slug}" class="payhip-btn">Buy Now & Download</a>
-            <p style="font-size: 0.8rem; margin-top: 10px; color: #94a3b8;">Secure Payment via Stripe/PayPal</p>
+        <div class="payhip-box" style="text-align: center; margin: 40px 0;">
+            <a href="https://payhip.com/b/qoGLF?product_id=${slug}" class="cta-button" target="_blank" style="display: inline-block; background: #f97316; color: white; font-weight: 700; padding: 15px 30px; border-radius: 6px; text-decoration: none; font-size: 1.2rem;">
+              UNLOCK OFFICIAL AUDIT REPORT ($29.99)
+            </a>
+            <p style="font-size: 0.9rem; margin-top: 10px; color: #94a3b8;">Secure Payment via Stripe/PayPal • Instant PDF Download</p>
         </div>`;
 
         // Inject Monetization into Content (Top 30% and Bottom)
@@ -407,6 +407,13 @@ export default {
                          .replace(/<head>[\s\S]*?<\/head>/gi, '') // Remove head completely
                          .replace(/<body.*?>/gi, '')
                          .replace(/<\/body>/gi, '');
+
+        // === HOT FIX: Remove Old Buttons (Source A) ===
+        // Remove <div class="audit-cta"... </div> and <div class="promo-box"... </div>
+        // Using a greedy match for the div content might be dangerous if nested, 
+        // but assuming standard structure from previous scripts.
+        content = content.replace(/<div class="audit-cta"[\s\S]*?<\/div>/gi, '');
+        content = content.replace(/<div class="promo-box"[\s\S]*?<\/div>/gi, '');
 
         // Naive Injection: Find the 3rd <h2> or 3rd <p>
         // Better: Append to end, and insert after first significant block
