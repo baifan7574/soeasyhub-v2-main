@@ -209,7 +209,7 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
 
         /* ===== MONETIZATION HOOK ===== */
         /* 1. NUCLEAR OPTION: Hide Old Buttons */
-        .audit-cta, .promo-box, .cta-container, .payhip-button {
+        .audit-cta, .promo-box, .cta-container, .payhip-button, .monetization-box {
             display: none !important;
         }
 
@@ -438,12 +438,15 @@ export default {
                          .replace(/<body.*?>/gi, '')
                          .replace(/<\/body>/gi, '');
 
-        // === HOT FIX: Remove Old Buttons (Source A) ===
-        // Remove <div class="audit-cta"... </div> and <div class="promo-box"... </div>
-        // Using a greedy match for the div content might be dangerous if nested, 
-        // but assuming standard structure from previous scripts.
+        // === THE REAL PURGE: Remove ALL Old Monetization Blocks ===
+        // 1. Remove <div class="monetization-box"... </div> (Root Cause)
+        content = content.replace(/<div class="monetization-box"[\s\S]*?<\/div>/gi, '');
+        // 2. Remove legacy button containers
         content = content.replace(/<div class="audit-cta"[\s\S]*?<\/div>/gi, '');
         content = content.replace(/<div class="promo-box"[\s\S]*?<\/div>/gi, '');
+        content = content.replace(/<div class="cta-container"[\s\S]*?<\/div>/gi, '');
+        // 3. Remove {{PDF_LINK}} placeholders
+        content = content.replace(/<a href="{{PDF_LINK}}"[\s\S]*?<\/a>/gi, '');
 
         // Naive Injection: Find the 3rd <h2> or 3rd <p>
         // Better: Append to end, and insert after first significant block
