@@ -23,7 +23,9 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          sudo apt-get install -y libssl-dev libffi-dev
           pip install -r requirements.txt
+          pip install xhtml2pdf
           playwright install chromium
 
       - name: Phase 0 Production Audit
@@ -33,7 +35,7 @@ jobs:
         run: python production_audit.py
 
       - name: Phase 3 Matrix Refiner
-        run: python matrix_refiner.py --batch 50
+        run: python matrix_refiner.py --batch 200
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -42,7 +44,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
       - name: Phase 4 Matrix Composer (Force Full HTML Coverage)
-        run: python matrix_composer.py --batch 150
+        run: python matrix_composer.py --batch 200
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -52,7 +54,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
       - name: Phase 5 Matrix Reporter (Full Batch PDF)
-        run: python matrix_reporter.py --batch 130
+        run: python matrix_reporter.py --batch 200
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}

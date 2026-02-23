@@ -10,3 +10,4 @@ requests
 urllib3
 markdown
 google-generativeai
+xhtml2pdf
