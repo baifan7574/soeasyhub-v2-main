@@ -39,6 +39,9 @@ class MatrixLibrarian:
             config['key'] = supabase_key
             if tavily_key:
                 config['tavily_key'] = tavily_key
+            else:
+                raise ValueError(f"Critical: Environment variable {ENV_TAVILY_KEY} is missing.")
+            
             print("✅ Config loaded from environment variables.")
             return config
         
@@ -70,6 +73,9 @@ class MatrixLibrarian:
         
         if 'url' not in config or 'key' not in config:
             raise ValueError("Configuration incomplete. Check Token..txt or environment variables.")
+
+        if 'tavily_key' not in config:
+             raise ValueError("Critical: TAVILY_KEY is missing. Search cannot proceed.")
         
         print("⚠️  Config loaded from local Token file (development mode).")
         return config
@@ -94,8 +100,7 @@ class MatrixLibrarian:
 
     def search_pdf(self, keyword):
         if not self.tavily_key: 
-            print("   ⚠️ No Tavily Key, skipping search.")
-            return None
+            raise ValueError("Critical: TAVILY_KEY is not set in configuration. Aborting search.")
         
         # Tavily Search Query
         query = f"site:.gov filetype:pdf {keyword} report handbook"
