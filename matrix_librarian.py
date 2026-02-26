@@ -37,10 +37,13 @@ class MatrixLibrarian:
         if supabase_url and supabase_key:
             config['url'] = supabase_url
             config['key'] = supabase_key
-            if tavily_key:
+            
+            if tavily_key and len(tavily_key.strip()) > 0:
                 config['tavily_key'] = tavily_key
+                print(f"✅ TAVILY_KEY loaded from environment (Starts with: {tavily_key[:4]}...)")
             else:
-                raise ValueError(f"Critical: Environment variable {ENV_TAVILY_KEY} is missing.")
+                print(f"❌ Critical Error: {ENV_TAVILY_KEY} is missing or empty in environment variables.")
+                raise ValueError(f"Critical: Environment variable {ENV_TAVILY_KEY} is missing. Cannot proceed with search.")
             
             print("✅ Config loaded from environment variables.")
             return config
@@ -100,6 +103,7 @@ class MatrixLibrarian:
 
     def search_pdf(self, keyword):
         if not self.tavily_key: 
+            print("❌ Critical: TAVILY_KEY is None during search operation.")
             raise ValueError("Critical: TAVILY_KEY is not set in configuration. Aborting search.")
         
         # Tavily Search Query
