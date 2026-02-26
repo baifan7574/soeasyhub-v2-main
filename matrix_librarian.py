@@ -12,7 +12,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # ================= Configuration =================
 TOKEN_FILE = os.path.join(".agent", "Token..txt")  # Fallback for local development
 STORAGE_BUCKET = "raw-handbooks"
-BATCH_SIZE = 50
+BATCH_SIZE = 200  # Simple & Brutal: 每次处理 200 个未下载记录
 
 # Environment variable names for cloud deployment
 ENV_SUPABASE_URL = "SUPABASE_URL"
@@ -74,13 +74,13 @@ class MatrixLibrarian:
         return config
 
     def fetch_pending_tasks(self) -> List[dict]:
-        print(f"📋 Fetching batch of {BATCH_SIZE} tasks (Broad Search)...")
+        print(f"📋 Fetching batch of {BATCH_SIZE} tasks (Simple & Brutal)...")
         try:
-            # 优先处理 color_tag='Blue' (新注入的真实词)，其次处理其他
-            # 移除 .eq("category", "Medical") 限制，以便覆盖更广
+            # Simple & Brutal: 按 ID 排序，每次取 200 个未下载记录
             res = self.supabase.table("grich_keywords_pool")\
                 .select("*")\
                 .eq("is_downloaded", False)\
+                .order("id", desc=False)\
                 .limit(BATCH_SIZE)\
                 .execute()
             return res.data
