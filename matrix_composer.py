@@ -81,16 +81,29 @@ class MatrixComposer:
                            .order("id", desc=True)\
                            .limit(limit).execute()
             else:
-                # Simple & Brutal 生产逻辑：
-                # 1. 已下载（is_downloaded = true）
-                # 2. 尚未生成 PDF（pdf_url IS NULL）
-                # 3. 有内容数据（content_json NOT NULL）
-                # 4. 按 id 升序（先进先出）
-                res = query.eq("is_downloaded", True)\
-                           .is_("pdf_url", "null")\
-                           .not_.is_("content_json", "null")\
-                           .order("id", desc=False)\
-                           .limit(limit).execute()
+                # 遵循 SKILL.md 逻辑：选择已精炼且未生成文章的记录
+                # 1. 已精炼（is_refined = True）或 content_json NOT NULL
+                # 2. 文章为空（final_article IS NULL）
+                # 3. 按 id 升序（先进先出）
+                # 4. 限制数量
+                try:
+                    # 先尝试使用 is_refined 字段
+                    res = query.eq("is_refined", True)\
+                               .is_("final_article", "null")\
+                               .order("id", desc=False)\
+                               .limit(limit).execute()
+                    if len(res.data) == 0:
+                        # 回退：content_json NOT NULL 且 final_article IS NULL
+                        res = query.not_.is_("content_json", "null")\
+                                   .is_("final_article", "null")\
+                                   .order("id", desc=False)\
+                                   .limit(limit).execute()
+                except Exception:
+                    # 如果字段不存在，使用 content_json NOT NULL 且 final_article IS NULL
+                    res = query.not_.is_("content_json", "null")\
+                               .is_("final_article", "null")\
+                               .order("id", desc=False)\
+                               .limit(limit).execute()
         return res.data
 
     def compose_article(self, record):
