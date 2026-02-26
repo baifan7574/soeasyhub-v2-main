@@ -25,18 +25,21 @@ class MatrixRefiner:
         self.zhipu_key = self.config.get('zhipu_key')
         self.ds_key = self.config.get('ds_key')
         
-        if self.zhipu_key:
-            # Use ZhipuAI GLM-4V as primary engine
-            self.client = OpenAI(api_key=self.zhipu_key, base_url="https://open.bigmodel.cn/api/paas/v4/")
-            self.model = "glm-4v"
-            print("🏭 Refinery Online (GLM-4V Engine).")
-        elif self.ds_key:
-            # Fallback to DeepSeek
+        
+        # Priority: DeepSeek (Cost effective) > Zhipu (Vision capable)
+        # If you need Vision, swap the order or use a flag.
+        if self.ds_key:
+            # Prefer DeepSeek for text refining to save cost/avoid Zhipu balance issues
             self.client = OpenAI(api_key=self.ds_key, base_url="https://api.deepseek.com")
             self.model = "deepseek-chat"
             print("🏭 Refinery Online (DeepSeek Engine).")
+        elif self.zhipu_key:
+            # Fallback to ZhipuAI
+            self.client = OpenAI(api_key=self.zhipu_key, base_url="https://open.bigmodel.cn/api/paas/v4/")
+            self.model = "glm-4v"
+            print("🏭 Refinery Online (GLM-4V Engine).")
         else:
-            raise ValueError("❌ Missing API Key. Please set ZHIPU_API_KEY or DEEPSEEK_API_KEY environment variable.")
+            raise ValueError("❌ Missing API Key. Please set DEEPSEEK_API_KEY or ZHIPU_API_KEY.")
 
     def _load_config(self):
         config = {}
@@ -176,6 +179,28 @@ class MatrixRefiner:
                 content = content.replace("```json", "").replace("```", "")
             return content.strip()
         except Exception as e:
+            error_msg = str(e)
+            if "1113" in error_msg or "balance" in error_msg.lower():
+                print(f"   ❌ Insufficient Balance for {self.model}. Please check your account.")
+                if self.model == "glm-4v" and self.ds_key:
+                    print("   🔄 Attempting fallback to DeepSeek...")
+                    try:
+                        fallback_client = OpenAI(api_key=self.ds_key, base_url="https://api.deepseek.com")
+                        response = fallback_client.chat.completions.create(
+                            model="deepseek-chat",
+                            messages=[
+                                {"role": "system", "content": "You are a helpful assistant that outputs strict JSON."},
+                                {"role": "user", "content": prompt},
+                            ],
+                            stream=False
+                        )
+                        content = response.choices[0].message.content
+                        if "```json" in content:
+                            content = content.replace("```json", "").replace("```", "")
+                        return content.strip()
+                    except Exception as fallback_e:
+                        print(f"   ❌ Fallback failed: {fallback_e}")
+            
             print(f"   ❌ AI API Error ({self.model}): {e}")
             return None
 
