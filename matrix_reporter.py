@@ -126,7 +126,6 @@ class MatrixReporter:
             .select("*")\
             .eq("is_refined", True)\
             .is_("pdf_url", "null")\
-            .order("created_at", desc=True)\
             .limit(limit)\
             .execute()
         return res.data

@@ -112,8 +112,8 @@ class MatrixComposer:
                 res = query.not_.is_("content_json", "null").order("last_mined_at", desc=True).limit(limit).execute()
             else:
                 # Fetch records that have refined content but no final article yet
-                # 优先处理 color_tag='Blue' (新注入的真实词) 或者按 created_at 倒序
-                res = query.not_.is_("content_json", "null").is_("final_article", "null").order("created_at", desc=True).limit(limit).execute()
+                # 优先处理 color_tag='Blue' (新注入的真实词)
+                res = query.not_.is_("content_json", "null").is_("final_article", "null").limit(limit).execute()
         return res.data
 
     def compose_article(self, record):
