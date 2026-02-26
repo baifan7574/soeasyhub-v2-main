@@ -12,7 +12,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # ================= Configuration =================
 TOKEN_FILE = os.path.join(".agent", "Token..txt")  # Fallback for local development
 STORAGE_BUCKET = "raw-handbooks"
-BATCH_SIZE = 200  # Simple & Brutal: 每次处理 200 个未下载记录
+# Priority: Env Var > Default
+BATCH_SIZE = int(os.environ.get("BATCH_SIZE", 200))
 
 # Environment variable names for cloud deployment
 ENV_SUPABASE_URL = "SUPABASE_URL"
@@ -77,32 +78,42 @@ class MatrixLibrarian:
         print(f"📋 Fetching batch of {BATCH_SIZE} tasks (Simple & Brutal)...")
         try:
             # Simple & Brutal: 强制全量拉取 is_downloaded = false 的记录
+            # User Instruction: SELECT * FROM grich_keywords_pool WHERE is_downloaded = false LIMIT 200
             res = self.supabase.table("grich_keywords_pool")\
                 .select("*")\
                 .eq("is_downloaded", False)\
                 .limit(BATCH_SIZE)\
                 .execute()
-            return res.data
+            
+            data = res.data
+            print(f"   ℹ️ Found {len(data)} pending tasks.")
+            return data
         except Exception as e:
             print(f"❌ Fetch Error: {e}")
             return []
 
     def search_pdf(self, keyword):
-        if not self.tavily_key: return None
-        query = f"site:.gov filetype:pdf {keyword}"
+        if not self.tavily_key: 
+            print("   ⚠️ No Tavily Key, skipping search.")
+            return None
+        
+        # Tavily Search Query
+        query = f"site:.gov filetype:pdf {keyword} report handbook"
         url = "https://api.tavily.com/search"
         payload = {
             "api_key": self.tavily_key,
             "query": query,
             "max_results": 1,
+            "search_depth": "advanced"
         }
         try:
-            res = requests.post(url, json=payload, timeout=10)
+            res = requests.post(url, json=payload, timeout=15)
             data = res.json()
             if 'results' in data and len(data['results']) > 0:
                 return data['results'][0] 
             return None
-        except:
+        except Exception as e:
+            print(f"   ⚠️ Search Error: {e}")
             return None
 
     def download_and_upload(self, pdf_url, slug):
@@ -110,9 +121,11 @@ class MatrixLibrarian:
             print(f"   ⬇️ Downloading (Bypassing SSL): {pdf_url}")
             headers = {'User-Agent': 'Mozilla/5.0'}
             # verify=False is critical for CDPH and other gov sites
-            with requests.get(pdf_url, headers=headers, stream=True, timeout=20, verify=False) as r:
+            with requests.get(pdf_url, headers=headers, stream=True, timeout=30, verify=False) as r:
                 r.raise_for_status()
-                if 'html' in r.headers.get('Content-Type', '').lower():
+                content_type = r.headers.get('Content-Type', '').lower()
+                if 'html' in content_type:
+                     print(f"   ⚠️ Skipped: Content-Type is {content_type} (Not PDF)")
                      return None
                 
                 file_path = f"{slug}.pdf"
@@ -129,20 +142,43 @@ class MatrixLibrarian:
     def run_batch(self):
         tasks = self.fetch_pending_tasks()
         if not tasks:
-            print("💤 No pending tasks.")
+            print("💤 No pending tasks found in DB. Check if 'grich_keywords_pool' has entries with is_downloaded=false.")
             return
 
         for task in tasks:
-            print(f"\n🔍 Searching: {task['keyword']}")
+            print(f"\n======== Processing Task {task.get('id')} ========")
+            print(f"🔍 Searching: {task['keyword']}")
+            
+            # 1. Search for PDF
             result = self.search_pdf(task['keyword'])
+            
             if result:
-                path = self.download_and_upload(result['url'], task['slug'])
+                pdf_url = result['url']
+                print(f"   🎯 Found URL: {pdf_url}")
+                
+                # 2. Download & Upload
+                path = self.download_and_upload(pdf_url, task['slug'])
+                
                 if path:
-                    self.supabase.table("grich_keywords_pool").update({"is_downloaded": True, "state": "downloaded"}).eq("id", task['id']).execute()
-                    print("   ✅ [DB Success]")
+                    # Success
+                    self.supabase.table("grich_keywords_pool").update({
+                        "is_downloaded": True, 
+                        "state": "downloaded",
+                        "pdf_url": pdf_url  # Optional: Store source URL if schema allows
+                    }).eq("id", task['id']).execute()
+                    print("   ✅ [DB Success] Marked as downloaded.")
                 else:
-                    self.supabase.table("grich_keywords_pool").update({"state": "download_failed"}).eq("id", task['id']).execute()
-            time.sleep(2)
+                    # Download failed but search succeeded
+                    self.supabase.table("grich_keywords_pool").update({
+                        "state": "download_failed"
+                    }).eq("id", task['id']).execute()
+                    print("   ⚠️ [DB Update] Marked as download_failed.")
+            else:
+                print("   🚫 No PDF found via Tavily.")
+                # Optional: Mark as not found to avoid infinite retries?
+                # self.supabase.table("grich_keywords_pool").update({"state": "not_found"}).eq("id", task['id']).execute()
+            
+            time.sleep(1) # Rate limit protection
 
 if __name__ == "__main__":
     librarian = MatrixLibrarian()

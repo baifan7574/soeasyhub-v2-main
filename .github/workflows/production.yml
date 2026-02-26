@@ -50,6 +50,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           TAVILY_KEY: ${{ secrets.TAVILY_KEY }}
+          BATCH_SIZE: 200
 
       - name: Phase 3 Matrix Refiner
         run: python matrix_refiner.py --batch 200
