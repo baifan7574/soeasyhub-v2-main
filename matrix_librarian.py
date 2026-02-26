@@ -74,11 +74,12 @@ class MatrixLibrarian:
         return config
 
     def fetch_pending_tasks(self) -> List[dict]:
-        print(f"📋 Fetching batch of {BATCH_SIZE} tasks (Medical Priority)...")
+        print(f"📋 Fetching batch of {BATCH_SIZE} tasks (Broad Search)...")
         try:
+            # 优先处理 color_tag='Blue' (新注入的真实词)，其次处理其他
+            # 移除 .eq("category", "Medical") 限制，以便覆盖更广
             res = self.supabase.table("grich_keywords_pool")\
                 .select("*")\
-                .eq("category", "Medical")\
                 .eq("is_downloaded", False)\
                 .limit(BATCH_SIZE)\
                 .execute()
