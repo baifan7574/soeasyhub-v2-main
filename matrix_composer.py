@@ -64,42 +64,11 @@ class MatrixComposer:
             print("✅ Config loaded from environment variables.")
             return config
         
-        # Priority 2: Fallback to local Token file (development)
-        search_paths = [
-            TOKEN_FILE,
-            os.path.join(".agent", "Token..txt"),
-            os.path.join("..", ".agent", "Token..txt")
-        ]
-        
-        token_path = None
-        for p in search_paths:
-            if os.path.exists(p):
-                token_path = p
-                break
-        
-        if not token_path:
-            raise FileNotFoundError(
-                f"Critical: Token..txt not found and environment variables {ENV_SUPABASE_URL}/{ENV_SUPABASE_KEY} not set."
-            )
-
-        with open(token_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line: continue
-                if "Project URL:" in line:
-                    config['url'] = line.split("URL:")[1].strip()
-                if "Secret keys:" in line:
-                    config['key'] = line.split("keys:")[1].strip()
-                if "DSAPI:" in line:
-                    config['ds_key'] = line.split("DSAPI:")[1].strip()
-                if "groqapi" in line:
-                    config['groq_key'] = line.split(":")[1].strip()
-        
-        if 'url' not in config or 'key' not in config:
-            raise ValueError("Configuration incomplete. Check Token..txt or environment variables.")
-        
-        print("⚠️  Config loaded from local Token file (development mode).")
-        return config
+        # 如果环境变量未设置，抛出异常（全自动工厂禁止依赖本地文件）
+        raise ValueError(
+            f"Critical: Environment variables {ENV_SUPABASE_URL}/{ENV_SUPABASE_KEY} not set."
+            "全自动工厂严禁依赖本地 Token..txt 文件！"
+        )
 
     def fetch_records(self, target_slug=None, limit=5, force=False):
         query = self.supabase.table("grich_keywords_pool").select("*")
