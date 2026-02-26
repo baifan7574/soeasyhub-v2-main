@@ -76,11 +76,10 @@ class MatrixLibrarian:
     def fetch_pending_tasks(self) -> List[dict]:
         print(f"📋 Fetching batch of {BATCH_SIZE} tasks (Simple & Brutal)...")
         try:
-            # Simple & Brutal: 按 ID 排序，每次取 200 个未下载记录
+            # Simple & Brutal: 强制全量拉取 is_downloaded = false 的记录
             res = self.supabase.table("grich_keywords_pool")\
                 .select("*")\
                 .eq("is_downloaded", False)\
-                .order("id", desc=False)\
                 .limit(BATCH_SIZE)\
                 .execute()
             return res.data

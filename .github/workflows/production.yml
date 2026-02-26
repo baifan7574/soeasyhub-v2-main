@@ -44,6 +44,13 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python production_audit.py
 
+      - name: Phase 2 Matrix Librarian (Force Full Fetch)
+        run: python matrix_librarian.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          TAVILY_KEY: ${{ secrets.TAVILY_KEY }}
+
       - name: Phase 3 Matrix Refiner
         run: python matrix_refiner.py --batch 200
         env:
