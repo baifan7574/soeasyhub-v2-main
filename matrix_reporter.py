@@ -38,9 +38,9 @@ class MatrixReporter:
         
         # Priority: ZhipuAI > Groq > DeepSeek
         if self.config.get('zhipu_key'):
-            print("🧠 [ZhipuAI GLM-4V] Engine selected for Professional Audit.")
+            print("🧠 [ZhipuAI GLM-4V-Flash] Engine selected for Professional Audit.")
             self.client = OpenAI(api_key=self.config['zhipu_key'], base_url="https://open.bigmodel.cn/api/paas/v4/")
-            self.model = "glm-4v"
+            self.model = "glm-4v-flash"
         elif self.config.get('groq_key'):
             print("🧠 [Groq Llama 3.3] Engine selected for Professional Audit.")
             self.client = OpenAI(api_key=self.config['groq_key'], base_url="https://api.groq.com/openai/v1")

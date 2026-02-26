@@ -36,8 +36,8 @@ class MatrixRefiner:
         elif self.zhipu_key:
             # Fallback to ZhipuAI
             self.client = OpenAI(api_key=self.zhipu_key, base_url="https://open.bigmodel.cn/api/paas/v4/")
-            self.model = "glm-4v"
-            print("🏭 Refinery Online (GLM-4V Engine).")
+            self.model = "glm-4v-flash"
+            print("🏭 Refinery Online (GLM-4V-Flash Engine).")
         else:
             raise ValueError("❌ Missing API Key. Please set DEEPSEEK_API_KEY or ZHIPU_API_KEY.")
 
