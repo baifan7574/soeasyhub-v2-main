@@ -107,13 +107,21 @@ class MatrixComposer:
             res = query.eq("slug", target_slug).execute()
         else:
             if force:
-                # When force is True, fetch all records with content_json regardless of final_article status
-                # 增加 limit 确保批处理
-                res = query.not_.is_("content_json", "null").order("last_mined_at", desc=True).limit(limit).execute()
+                # 强制模式：覆盖已有文章，仍然需要 content_json
+                res = query.not_.is_("content_json", "null")\
+                           .order("id", desc=True)\
+                           .limit(limit).execute()
             else:
-                # Fetch records that have refined content but no final article yet
-                # 优先处理 color_tag='Blue' (新注入的真实词)
-                res = query.not_.is_("content_json", "null").is_("final_article", "null").limit(limit).execute()
+                # Simple & Brutal 生产逻辑：
+                # 1. 已下载（is_downloaded = true）
+                # 2. 尚未生成 PDF（pdf_url IS NULL）
+                # 3. 有内容数据（content_json NOT NULL）
+                # 4. 按 id 升序（先进先出）
+                res = query.eq("is_downloaded", True)\
+                           .is_("pdf_url", "null")\
+                           .not_.is_("content_json", "null")\
+                           .order("id", desc=False)\
+                           .limit(limit).execute()
         return res.data
 
     def compose_article(self, record):

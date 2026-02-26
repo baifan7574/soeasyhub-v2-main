@@ -121,11 +121,13 @@ class MatrixReporter:
         return res.data[0] if res.data else None
 
     def fetch_unreported_records(self, limit=10):
-        """Fetch records that are refined but have no PDF URL"""
+        """Simple & Brutal 生产逻辑：已下载但未生成 PDF 的记录"""
         res = self.supabase.table("grich_keywords_pool")\
             .select("*")\
-            .eq("is_refined", True)\
+            .eq("is_downloaded", True)\
             .is_("pdf_url", "null")\
+            .not_.is_("final_article", "null")\
+            .order("id", desc=False)\
             .limit(limit)\
             .execute()
         return res.data
