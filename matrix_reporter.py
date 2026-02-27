@@ -633,11 +633,32 @@ Your output MUST follow this EXACT structure:
         
         print(f"\n📋 Found {total} records without PDF. Starting professional audit generation...\n")
         
+        # --- STATE MANAGEMENT START ---
+        state_dir = os.path.join(".agent", "state")
+        os.makedirs(state_dir, exist_ok=True)
+        state_file = os.path.join(state_dir, "reporter_state.json")
+        
+        processed_slugs = []
+        if os.path.exists(state_file):
+            try:
+                with open(state_file, 'r') as f:
+                    state = json.load(f)
+                    processed_slugs = state.get("processed_today", [])
+                    print(f"📦 [State] Loaded {len(processed_slugs)} processed slugs from artifact.")
+            except Exception as e:
+                print(f"⚠️ Failed to load state: {e}")
+        # --- STATE MANAGEMENT END ---
+
         success_count = 0
         fail_count = 0
         
         for i, r in enumerate(records, 1):
-            print(f"[{i}/{total}] 📄 Auditing: {r['slug']}")
+            slug = r['slug']
+            if slug in processed_slugs:
+                 print(f"⏭️ [Skip] [{i}/{total}] {slug} already processed in current batch (Artifact state).")
+                 continue
+                 
+            print(f"[{i}/{total}] 📄 Auditing: {slug}")
             
             # Triple verification: Check ID binding
             if r.get('content_json', {}).get('keyword_id') and r['content_json']['keyword_id'] != r['id']:
@@ -646,13 +667,30 @@ Your output MUST follow this EXACT structure:
             logic = self.generate_audit_logic(r)
             if logic:
                 print(f"   ✅ Audit logic generated ({len(logic)} chars)")
-                ok = self.render_pdf(logic, r['slug'], r['keyword'], r['id'])
-                if ok:
-                    success_count += 1
-                    print(f"   📊 PDF rendered and uploaded")
-                else:
-                    fail_count += 1
-                    print(f"   ❌ PDF rendering/upload failed")
+                
+                # Retry logic for PDF render and upload
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        ok = self.render_pdf(logic, slug, r['keyword'], r['id'])
+                        if ok:
+                            success_count += 1
+                            print(f"   📊 PDF rendered and uploaded")
+                            
+                            # Update state
+                            processed_slugs.append(slug)
+                            with open(state_file, 'w') as f:
+                                json.dump({"processed_today": processed_slugs, "last_updated": time.time()}, f)
+                            break # Success, exit retry loop
+                        else:
+                            print(f"   ❌ PDF rendering/upload failed (Attempt {attempt+1}/{max_retries})")
+                            if attempt == max_retries - 1:
+                                fail_count += 1
+                    except Exception as e:
+                         print(f"   ❌ Exception during PDF process (Attempt {attempt+1}/{max_retries}): {e}")
+                         if attempt == max_retries - 1:
+                                fail_count += 1
+                    time.sleep(5) # Delay between retries
             else:
                 fail_count += 1
                 print(f"   ❌ Audit logic generation failed")
@@ -666,8 +704,8 @@ Your output MUST follow this EXACT structure:
         print(f"📊 BATCH AUDIT COMPLETE: {success_count}/{total} professional PDFs generated.")
         print(f"   ✅ Success: {success_count}")
         print(f"   ❌ Failed: {fail_count}")
-        if success_count == total:
-            print(f"   🎉 PERFECT EXECUTION: All audits completed successfully!")
+        if success_count > 0 and fail_count == 0:
+            print(f"   🎉 PERFECT EXECUTION: All audits in this batch completed successfully!")
         print(f"{'='*60}")
 
 if __name__ == "__main__":

@@ -246,19 +246,57 @@ class MatrixComposer:
             print("🔧 [Force Mode] Will overwrite existing final_article entries.")
         
         print(f"🚀 [Batch Injection] Starting {len(records)} articles...")
+        
+        # --- STATE MANAGEMENT START ---
+        state_dir = os.path.join(".agent", "state")
+        os.makedirs(state_dir, exist_ok=True)
+        state_file = os.path.join(state_dir, "composer_state.json")
+        
+        processed_slugs = []
+        if os.path.exists(state_file) and not target_slug and not force:
+            try:
+                with open(state_file, 'r') as f:
+                    state = json.load(f)
+                    processed_slugs = state.get("processed_today", [])
+                    print(f"📦 [State] Loaded {len(processed_slugs)} processed slugs from artifact.")
+            except Exception as e:
+                print(f"⚠️ Failed to load state: {e}")
+        # --- STATE MANAGEMENT END ---
+
         for record in records:
-            print(f"\n✍️ [Working] {record['slug']}")
+            slug = record['slug']
+            if slug in processed_slugs and not target_slug and not force:
+                 print(f"⏭️ [Skip] {slug} already processed in current batch (Artifact state).")
+                 continue
+                 
+            print(f"\n✍️ [Working] {slug}")
             article = self.compose_article(record)
             if article:
                 # 强制HTML转换：确保没有任何Markdown残留
                 article = self._ensure_html(article)
                 
-                self.supabase.table("grich_keywords_pool").update({
-                    "final_article": article
-                }).eq("id", record['id']).execute()
-                print(f"   ✅ [Inject Success] Chars: {len(article)}")
+                # Retry logic for Supabase update
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        self.supabase.table("grich_keywords_pool").update({
+                            "final_article": article
+                        }).eq("id", record['id']).execute()
+                        print(f"   ✅ [Inject Success] Chars: {len(article)}")
+                        
+                        # Update state
+                        processed_slugs.append(slug)
+                        with open(state_file, 'w') as f:
+                             json.dump({"processed_today": processed_slugs, "last_updated": time.time()}, f)
+                        break # Success, exit retry loop
+                    except Exception as e:
+                        print(f"   ⚠️ Supabase update failed (Attempt {attempt+1}/{max_retries}): {e}")
+                        if attempt < max_retries - 1:
+                            time.sleep(5)
+                        else:
+                            print(f"   ❌ Final failure updating {slug}")
             else:
-                print(f"   ⚠️ [Skipped] Failed to compose {record['slug']}")
+                print(f"   ⚠️ [Skipped] Failed to compose {slug}")
             time.sleep(2)
 
 if __name__ == "__main__":
