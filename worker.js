@@ -246,10 +246,16 @@ export default {
       return response.json();
     }
 
-    // === ROUTE 0: Google Search Console Verification ===
+    // === ROUTE 0: Google Search Console & Bing IndexNow Verification ===
     if (path === "/googleleaf4d2d986493bb7e.html") {
       return new Response("google-site-verification: googleleaf4d2d986493bb7e.html", {
         headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+    
+    if (path === "/822834cd8b83498a90e4fd5ef715fa14.txt") {
+      return new Response("822834cd8b83498a90e4fd5ef715fa14", {
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
       });
     }
 
