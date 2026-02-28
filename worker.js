@@ -527,6 +527,31 @@ export default {
                          .replace(/<div class="cta-container"[\s\S]*?<\/div>/gi, '')
                          .replace(/<a href="{{PDF_LINK}}"[\s\S]*?<\/a>/gi, '');
 
+        // Remove "Explore Related Pathways" and all related links at the bottom
+        content = content.replace(/<h[234][^>]*>Explore Related Pathways<\/h[234]>[\s\S]*/gi, '');
+        content = content.replace(/<h[234][^>]*>Related Pathways<\/h[234]>[\s\S]*/gi, '');
+
+        // Generate the Monetization Button (Restored!)
+        const monetizationBlock = `
+        <div style="text-align: center; margin: 50px 0; background: #fff7ed; padding: 30px; border-radius: 12px; border: 2px dashed #f97316;">
+            <h3 style="color: #ea580c; margin-top: 0; margin-bottom: 15px; font-size: 1.4rem;">Ready to Fast-Track Your Compliance?</h3>
+            <a href="https://payhip.com/b/qoGLF?product_id=${slug}" target="_blank" style="display: inline-block; background: #f97316; color: #ffffff !important; font-weight: 800; padding: 18px 36px; border-radius: 8px; text-decoration: none; font-size: 1.15rem; box-shadow: 0 4px 15px rgba(249, 115, 22, 0.4); transition: transform 0.2s;">
+              UNLOCK OFFICIAL AUDIT REPORT ($29.99)
+            </a>
+            <p style="font-size: 0.95rem; margin-top: 15px; margin-bottom: 0; color: #64748b;">Secure Payment via Stripe/PayPal • Instant PDF Download</p>
+        </div>`;
+
+        // Inject the payment button into the content (middle and end)
+        const paragraphs = content.split('</p>');
+        if (paragraphs.length > 5) {
+            const injectIndex = Math.floor(paragraphs.length * 0.4);
+            paragraphs.splice(injectIndex, 0, monetizationBlock);
+            content = paragraphs.join('</p>');
+        }
+        
+        // Always append a payment button at the very bottom
+        content += monetizationBlock;
+
         // Generate the "Teacher's Note" block at the start
         const stateMatch = title.match(/(California|Texas|Florida|New York|Illinois|Ohio|Georgia|North Carolina|Michigan|New Jersey|Virginia|Washington|Arizona|Massachusetts|Tennessee|Indiana|Missouri|Maryland|Wisconsin|Colorado|Minnesota|South Carolina|Alabama|Louisiana|Kentucky|Oregon|Oklahoma|Connecticut|Utah|Iowa|Nevada|Arkansas|Mississippi|Kansas|New Mexico|Nebraska|Idaho|West Virginia|Hawaii|New Hampshire|Maine|Rhode Island|Montana|Delaware|South Dakota|North Dakota|Alaska|Vermont|Wyoming)/i);
         const stateName = stateMatch ? stateMatch[0] : "your state";
