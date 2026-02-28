@@ -1,0 +1,37 @@
+name: Daily SEO Pusher
+
+on:
+  schedule:
+    # 每天凌晨 2 点 (UTC) 执行，相当于北京时间上午 10 点
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # 允许手动触发
+
+jobs:
+  seo_push:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      working-directory: ./soeasyhub-v2
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests google-api-python-client google-auth-httplib2 google-auth-oauthlib
+
+    - name: Run SEO Pusher script
+      working-directory: ./soeasyhub-v2
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        GOOGLE_SEO_JSON: ${{ secrets.GOOGLE_SEO_JSON }}
+      run: |
+        python seo_pusher.py
