@@ -10,8 +10,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 def get_latest_urls():
     """Fetch the latest 200 published URLs from Supabase."""
-    supabase_url = os.environ.get("SUPABASE_URL")
-    supabase_key = os.environ.get("SUPABASE_KEY")
+    supabase_url = os.environ.get("SUPABASE_URL", "").strip()
+    supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
     
     if not supabase_url or not supabase_key:
         logging.error("Missing SUPABASE_URL or SUPABASE_KEY environment variables.")
