@@ -5,11 +5,11 @@ on:
     branches:
       - master
   schedule:
-    - cron: '0 */3 * * *'
+    - cron: '0 */2 * * *'  # Run every 2 hours
   workflow_dispatch:
     inputs:
       run_mode:
-        description: 'Run mode: "incremental" for default (200)'
+        description: 'Run mode: "incremental" for default (50)'
         required: true
         default: 'incremental'
         type: choice
@@ -54,24 +54,16 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python production_audit.py
         
-      # === NEW: DOWNLOAD PREVIOUS STATE FROM ARTIFACTS ===
-      - name: Download Production State
-        uses: actions/download-artifact@v4
-        with:
-          name: matrix-production-state
-          path: .
-        continue-on-error: true # It's okay if it fails on the first run
-
       - name: Phase 2 Matrix Librarian
         run: python matrix_librarian.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           TAVILY_KEY: ${{ secrets.TAVILY_KEY }}
-          BATCH_SIZE: 200
+          BATCH_SIZE: 50
 
       - name: Phase 3 Matrix Refiner
-        run: python matrix_refiner.py --batch 200
+        run: python matrix_refiner.py --batch 50
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -80,7 +72,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
       - name: Phase 4 Matrix Composer
-        run: python matrix_composer.py --batch 200
+        run: python matrix_composer.py --batch 50
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -90,7 +82,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
       - name: Phase 5 Matrix Reporter
-        run: python matrix_reporter.py --batch 200
+        run: python matrix_reporter.py --batch 50
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -108,15 +100,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python matrix_deployer.py
-
-      # === NEW: UPLOAD CURRENT STATE TO ARTIFACTS ===
-      - name: Upload Production State
-        uses: actions/upload-artifact@v4
-        with:
-          name: matrix-production-state
-          path: .agent/state/
-          retention-days: 7
-        continue-on-error: true
 
       - name: Commit and Push Changes
         run: |
