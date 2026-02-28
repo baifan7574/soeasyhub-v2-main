@@ -332,6 +332,13 @@ export default {
       return response.json();
     }
 
+    // === ROUTE 0: Google Search Console Verification ===
+    if (path === "/googleleaf4d2d986493bb7e.html") {
+      return new Response("google-site-verification: googleleaf4d2d986493bb7e.html", {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+
     // === ROUTE 1: HOME PAGE (Grid) ===
     if (path === "/" || path === "/index.html") {
       try {
