@@ -119,7 +119,6 @@ jobs:
         run: npm install -g wrangler
 
       - name: Deploy Worker
-        working-directory: ./soeasyhub-v2
         run: npx wrangler deploy
         env:
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
@@ -127,7 +126,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Upload Secrets to Worker
-        working-directory: ./soeasyhub-v2
         run: |
           echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL || true
           echo "${{ secrets.SUPABASE_KEY }}" | npx wrangler secret put SUPABASE_KEY || true
