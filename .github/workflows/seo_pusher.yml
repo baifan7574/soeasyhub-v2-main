@@ -1,4 +1,5 @@
 name: Daily SEO Pusher
+# v1.1 - Nudging scheduler to ensure daily execution.
 
 on:
   push:

@@ -1,4 +1,5 @@
 name: Matrix Production Factory (SoEasyHub v2)
+# v1.1 - Added stability fixes for scheduler and git conflicts.
 
 on:
   push:
@@ -25,6 +26,9 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          # Fetch all history for all branches and tags
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -101,11 +105,17 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python matrix_deployer.py
 
-      - name: Commit and Push Changes
+      - name: Commit and Push Changes (Robust Version)
         run: |
+          # Check if there are any changes to commit
+          if git diff --staged --quiet && git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
           git add .
-          git commit -m "Auto-update: Assets & Sitemap [skip ci]" || echo "No changes to commit"
-          git pull --rebase
+          git commit -m "Auto-update: Assets & Sitemap [skip ci]"
+          # Pull with a merge strategy that automatically accepts "our" (the script's) version in case of conflict
+          git pull -s recursive -X ours origin master
           git push
 
   deploy-worker:
