@@ -163,7 +163,9 @@ jobs:
         id: gsc-creds
         run: |
           GSC_KEY_FILE="./gsc_key.json"
-          echo "${{ secrets.GOOGLE_SEO_JSON }}" > $GSC_KEY_FILE
+          cat << 'EOF' > $GSC_KEY_FILE
+          ${{ secrets.GOOGLE_SEO_JSON }}
+          EOF
           echo "key_path=$GSC_KEY_FILE" >> $GITHUB_OUTPUT
         env:
           GSC_CREDENTIALS: ${{ secrets.GOOGLE_SEO_JSON }}
