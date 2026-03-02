@@ -159,21 +159,13 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install pandas google-api-python-client google-auth-httplib2 google-auth-oauthlib
       
-      - name: Set up GSC credentials
-        id: gsc-creds
-        run: |
-          GSC_KEY_FILE="./gsc_key.json"
-          cat << 'EOF' > $GSC_KEY_FILE
-          ${{ secrets.GOOGLE_SEO_JSON }}
-          EOF
-          echo "key_path=$GSC_KEY_FILE" >> $GITHUB_OUTPUT
-        env:
-          GSC_CREDENTIALS: ${{ secrets.GOOGLE_SEO_JSON }}
-
       - name: Run GSC Miner Script
-        run: python gsc_miner.py
+        run: |
+          python -c "import os; open('./gsc_key.json', 'w', encoding='utf-8').write(os.environ['GSC_CREDENTIALS'])"
+          python gsc_miner.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          GSC_KEY_FILE: ${{ steps.gsc-creds.outputs.key_path }}
+          GSC_CREDENTIALS: ${{ secrets.GOOGLE_SEO_JSON }}
+          GSC_KEY_FILE: ./gsc_key.json
 
