@@ -100,14 +100,14 @@ jobs:
 
       - name: Commit and Push Changes (Robust Version)
         run: |
-          if git diff --staged --quiet && git diff --quiet; then
+          git add .
+          if git diff --staged --quiet; then
             echo "No changes to commit."
             exit 0
           fi
-          git add .
           git commit -m "Auto-update: Assets & Sitemap [skip ci]"
-          git pull -s recursive -X ours origin master
-          git push
+          git pull --rebase origin master
+          git push origin HEAD:master
 
   deploy-worker:
     name: "Deploy Cloudflare Worker"
