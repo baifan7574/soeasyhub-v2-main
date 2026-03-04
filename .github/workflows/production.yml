@@ -1,4 +1,4 @@
-name: Matrix Factory & GSC Tools
+    name: Matrix Factory & GSC Tools
 
 on:
   push:
@@ -91,6 +91,7 @@ jobs:
           playwright install chromium
 
       - name: Phase 3 Matrix Refiner
+        timeout-minutes: 20
         run: python matrix_refiner.py --batch 10
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
