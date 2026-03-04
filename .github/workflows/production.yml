@@ -1,4 +1,4 @@
-    name: Matrix Factory & GSC Tools
+name: Matrix Factory & GSC Tools
 
 on:
   push:
