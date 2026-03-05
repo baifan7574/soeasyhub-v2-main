@@ -17,8 +17,11 @@ ENV_DEEPSEEK_API_KEY = "DEEPSEEK_API_KEY"
 ENV_GROQ_API_KEY = "GROQ_API_KEY"
 ENV_ZHIPU_API_KEY = "ZHIPU_API_KEY"
 
+import argparse
+
 class MatrixRefiner:
-    def __init__(self):
+    def __init__(self, batch_size=30):
+        self.batch_size = batch_size
         self.config = self._load_config()
         self.supabase: Client = create_client(self.config['url'], self.config['key'])
         
@@ -105,7 +108,7 @@ class MatrixRefiner:
                 .select("*")\
                 .eq("is_downloaded", True)\
                 .is_("content_json", "null")\
-                .limit(30)\
+                .limit(self.batch_size)\
                 .execute()
             return res.data
         except Exception as e:
@@ -132,10 +135,25 @@ class MatrixRefiner:
         read_pages = 0
         
         try:
+            # Add timeout mechanism or safe open? pdfplumber doesn't have native timeout.
+            # We can just be careful.
             with pdfplumber.open(pdf_path) as pdf:
                 total_pages = len(pdf.pages)
+                # LIMIT PAGES to avoid huge processing
+                max_pages_to_scan = 50 
+                
                 for i, page in enumerate(pdf.pages):
-                    text = page.extract_text() or ""
+                    if i >= max_pages_to_scan:
+                        print(f"   ⚠️ Reached max page scan limit ({max_pages_to_scan}). Stopping extraction.")
+                        break
+                        
+                    try:
+                         # Sometimes extract_text hangs on complex layout
+                        text = page.extract_text() or ""
+                    except Exception as e:
+                        print(f"   ⚠️ Page {i+1} extraction failed: {e}")
+                        continue
+                        
                     text_lower = text.lower()
                     if i < 3 or any(k in text_lower for k in keywords):
                         extracted_text += f"\n--- Page {i+1} ---\n{text}"
@@ -172,7 +190,8 @@ class MatrixRefiner:
                     {"role": "system", "content": "You are a helpful assistant that outputs strict JSON."},
                     {"role": "user", "content": prompt},
                 ],
-                stream=False
+                stream=False,
+                timeout=300
             )
             content = response.choices[0].message.content
             if "```json" in content:
@@ -279,5 +298,9 @@ class MatrixRefiner:
                 print(f"   - {f}")
 
 if __name__ == "__main__":
-    refiner = MatrixRefiner()
+    parser = argparse.ArgumentParser(description="Matrix Refiner")
+    parser.add_argument("--batch", type=int, default=30, help="Batch size to process.")
+    args = parser.parse_args()
+    
+    refiner = MatrixRefiner(batch_size=args.batch)
     refiner.run_batch()
