@@ -46,25 +46,37 @@ jobs:
           echo "Current directory: $(pwd)"
           ls -R
           
-          # Handle directory structure
-          if [ -d "soeasyhub-v2" ]; then
-            echo "Detected soeasyhub-v2 subdirectory. Moving into it..."
-            cd soeasyhub-v2
-            # Install requirements from subdirectory
-            pip install --upgrade pip
-            pip install -r requirements.txt
-            pip install xhtml2pdf
-            playwright install chromium
-            echo "WORKING_DIR=./soeasyhub-v2" >> $GITHUB_ENV
-          else
-            echo "No soeasyhub-v2 subdirectory found. Assuming root."
-            # Install requirements from root
-            pip install --upgrade pip
-            pip install -r requirements.txt
-            pip install xhtml2pdf
-            playwright install chromium
-            echo "WORKING_DIR=." >> $GITHUB_ENV
+          # Handle directory structure - ROBUST FIND MODE
+          TARGET_FILE="test_config.py"
+          echo "Searching for $TARGET_FILE..."
+          FOUND_PATH=$(find . -name "$TARGET_FILE" -print -quit)
+          
+          if [ -z "$FOUND_PATH" ]; then
+            echo "CRITICAL ERROR: $TARGET_FILE not found anywhere!"
+            exit 1
           fi
+          
+          echo "Found $TARGET_FILE at: $FOUND_PATH"
+          WORKING_DIR=$(dirname "$FOUND_PATH")
+          echo "Detected working directory: $WORKING_DIR"
+          
+          # Enter directory
+          cd "$WORKING_DIR"
+          
+          # Install requirements
+          pip install --upgrade pip
+          if [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+          else
+            echo "Warning: requirements.txt not found in $WORKING_DIR"
+          fi
+          pip install xhtml2pdf
+          playwright install chromium
+          
+          # Export for subsequent steps - need absolute path or relative to root?
+          # Github Actions env vars persist between steps but reset cwd.
+          # We will store the relative path to the root.
+          echo "WORKING_DIR=$WORKING_DIR" >> $GITHUB_ENV
 
       - name: Test Configuration
         env:
@@ -118,23 +130,35 @@ jobs:
           echo "Current directory: $(pwd)"
           ls -R
 
-          # Handle directory structure
-          if [ -d "soeasyhub-v2" ]; then
-            echo "Detected soeasyhub-v2 subdirectory. Using it."
-            cd soeasyhub-v2
-            pip install --upgrade pip
-            pip install -r requirements.txt
-            pip install xhtml2pdf
-            playwright install chromium
-            echo "WORKING_DIR=./soeasyhub-v2" >> $GITHUB_ENV
-          else
-            echo "No soeasyhub-v2 subdirectory found. Assuming root."
-            pip install --upgrade pip
-            pip install -r requirements.txt
-            pip install xhtml2pdf
-            playwright install chromium
-            echo "WORKING_DIR=." >> $GITHUB_ENV
+          # Handle directory structure - ROBUST FIND MODE
+          TARGET_FILE="test_config.py"
+          echo "Searching for $TARGET_FILE..."
+          FOUND_PATH=$(find . -name "$TARGET_FILE" -print -quit)
+          
+          if [ -z "$FOUND_PATH" ]; then
+            echo "CRITICAL ERROR: $TARGET_FILE not found anywhere!"
+            exit 1
           fi
+          
+          echo "Found $TARGET_FILE at: $FOUND_PATH"
+          WORKING_DIR=$(dirname "$FOUND_PATH")
+          echo "Detected working directory: $WORKING_DIR"
+          
+          # Enter directory
+          cd "$WORKING_DIR"
+          
+          # Install requirements
+          pip install --upgrade pip
+          if [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+          else
+            echo "Warning: requirements.txt not found in $WORKING_DIR"
+          fi
+          pip install xhtml2pdf
+          playwright install chromium
+          
+          # Export for subsequent steps
+          echo "WORKING_DIR=$WORKING_DIR" >> $GITHUB_ENV
 
       - name: Phase 3 Matrix Refiner
         timeout-minutes: 60
@@ -247,19 +271,34 @@ jobs:
           echo "Current directory: $(pwd)"
           ls -R
 
-          # Handle directory structure
-          if [ -d "soeasyhub-v2" ]; then
-            echo "Detected soeasyhub-v2 subdirectory. Moving into it..."
-            cd soeasyhub-v2
-            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-            pip install pandas google-api-python-client google-auth-httplib2 google-auth-oauthlib
-            echo "WORKING_DIR=./soeasyhub-v2" >> $GITHUB_ENV
-          else
-            echo "No soeasyhub-v2 subdirectory found. Assuming root."
-            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-            pip install pandas google-api-python-client google-auth-httplib2 google-auth-oauthlib
-            echo "WORKING_DIR=." >> $GITHUB_ENV
+          # Handle directory structure - ROBUST FIND MODE
+          TARGET_FILE="gsc_miner.py"
+          echo "Searching for $TARGET_FILE..."
+          FOUND_PATH=$(find . -name "$TARGET_FILE" -print -quit)
+          
+          if [ -z "$FOUND_PATH" ]; then
+            echo "CRITICAL ERROR: $TARGET_FILE not found anywhere!"
+            exit 1
           fi
+          
+          echo "Found $TARGET_FILE at: $FOUND_PATH"
+          WORKING_DIR=$(dirname "$FOUND_PATH")
+          echo "Detected working directory: $WORKING_DIR"
+          
+          # Enter directory
+          cd "$WORKING_DIR"
+          
+          # Install requirements
+          pip install --upgrade pip
+          if [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+          else
+             echo "Warning: requirements.txt not found in $WORKING_DIR"
+          fi
+          pip install pandas google-api-python-client google-auth-httplib2 google-auth-oauthlib
+          
+          # Export for subsequent steps
+          echo "WORKING_DIR=$WORKING_DIR" >> $GITHUB_ENV
       
       - name: Run GSC Miner Script
         run: |
