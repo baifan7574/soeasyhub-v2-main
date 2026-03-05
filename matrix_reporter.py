@@ -5,6 +5,7 @@ import argparse
 from datetime import datetime
 from openai import OpenAI
 from supabase import create_client, Client
+from matrix_config import config
 
 # PDF Rendering Imports with enhanced capabilities
 from reportlab.lib.pagesizes import A4
@@ -22,98 +23,30 @@ import io
 # Features: Triple-Verification Protocol, Zero-Data Protocol, PDF Visual Protocol, 21-Point Audit Table
 # =====================================================================================================
 
-TOKEN_FILE = os.path.join(os.path.dirname(__file__), ".agent", "Token..txt")  # Fallback for local development
-
-# Environment variable names for cloud deployment
-ENV_SUPABASE_URL = "SUPABASE_URL"
-ENV_SUPABASE_KEY = "SUPABASE_KEY"
-ENV_ZHIPU_API_KEY = "ZHIPU_API_KEY"
-ENV_GROQ_API_KEY = "GROQ_API_KEY"
-ENV_DEEPSEEK_API_KEY = "DEEPSEEK_API_KEY"
-
 class MatrixReporter:
     def __init__(self):
-        self.config = self._load_config()
-        self.supabase: Client = create_client(self.config['url'], self.config['key'])
+        if not config.is_valid():
+             raise ValueError("Configuration incomplete. Check Token..txt or environment variables.")
+
+        self.supabase: Client = create_client(config.supabase_url, config.supabase_key)
         
         # Priority: ZhipuAI > Groq > DeepSeek
-        if self.config.get('zhipu_key'):
-            print("🧠 [ZhipuAI GLM-4V-Flash] Engine selected for Professional Audit.")
-            self.client = OpenAI(api_key=self.config['zhipu_key'], base_url="https://open.bigmodel.cn/api/paas/v4/")
+        if config.zhipu_key:
+            config.log("[Info] ZhipuAI GLM-4V-Flash Engine selected for Professional Audit.")
+            self.client = OpenAI(api_key=config.zhipu_key, base_url="https://open.bigmodel.cn/api/paas/v4/")
             self.model = "glm-4v-flash"
-        elif self.config.get('groq_key'):
-            print("🧠 [Groq Llama 3.3] Engine selected for Professional Audit.")
-            self.client = OpenAI(api_key=self.config['groq_key'], base_url="https://api.groq.com/openai/v1")
+        elif config.groq_key:
+            config.log("[Info] Groq Llama 3.3 Engine selected for Professional Audit.")
+            self.client = OpenAI(api_key=config.groq_key, base_url="https://api.groq.com/openai/v1")
             self.model = "llama-3.3-70b-versatile"
-        elif self.config.get('ds_key'):
-            print("🧠 [DeepSeek V3] Engine selected for Professional Audit.")
-            self.client = OpenAI(api_key=self.config['ds_key'], base_url="https://api.deepseek.com")
+        elif config.deepseek_key:
+            config.log("[Info] DeepSeek V3 Engine selected for Professional Audit.")
+            self.client = OpenAI(api_key=config.deepseek_key, base_url="https://api.deepseek.com")
             self.model = "deepseek-chat"
         else:
-            raise ValueError("❌ Missing AI API Keys. Set ZHIPU_API_KEY, GROQ_API_KEY or DEEPSEEK_API_KEY.")
+            raise ValueError("[Error] Missing AI API Keys. Set ZHIPU_API_KEY, GROQ_API_KEY or DEEPSEEK_API_KEY.")
         
-        print("🛡️ [Lead Compliance Auditor Engaged]")
-
-    def _load_config(self):
-        config = {}
-        
-        # Priority 1: Read from environment variables (cloud deployment)
-        supabase_url = os.environ.get(ENV_SUPABASE_URL)
-        supabase_key = os.environ.get(ENV_SUPABASE_KEY)
-        zhipu_key = os.environ.get(ENV_ZHIPU_API_KEY)
-        groq_key = os.environ.get(ENV_GROQ_API_KEY)
-        deepseek_key = os.environ.get(ENV_DEEPSEEK_API_KEY)
-        
-        if supabase_url and supabase_key:
-            config['url'] = supabase_url
-            config['key'] = supabase_key
-            if zhipu_key:
-                config['zhipu_key'] = zhipu_key
-            elif groq_key:
-                config['groq_key'] = groq_key
-            elif deepseek_key:
-                config['ds_key'] = deepseek_key
-            print("✅ Config loaded from environment variables.")
-            return config
-        
-        # Priority 2: Fallback to local Token file (development)
-        search_paths = [
-            TOKEN_FILE,
-            os.path.join(".agent", "Token..txt"),
-            os.path.join("..", ".agent", "Token..txt")
-        ]
-        
-        token_path = None
-        for p in search_paths:
-            if os.path.exists(p):
-                token_path = p
-                break
-        
-        if not token_path:
-            raise FileNotFoundError(
-                f"Critical: Token..txt not found and environment variables {ENV_SUPABASE_URL}/{ENV_SUPABASE_KEY} not set."
-            )
-        
-        with open(token_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line: continue
-                if "Project URL:" in line:
-                    config['url'] = line.split("URL:")[1].strip()
-                if "Secret keys:" in line:
-                    config['key'] = line.split("keys:")[1].strip()
-                if "ZHIPUAPI:" in line:
-                    config['zhipu_key'] = line.split("ZHIPUAPI:")[1].strip()
-                if "DSAPI:" in line:
-                    config['ds_key'] = line.split("DSAPI:")[1].strip()
-                if "groqapi" in line:
-                    config['groq_key'] = line.split(":")[1].strip()
-        
-        if 'url' not in config or 'key' not in config:
-            raise ValueError("Configuration incomplete. Check Token..txt or environment variables.")
-        
-        print("⚠️  Config loaded from local Token file (development mode).")
-        return config
+        config.log("[Info] Lead Compliance Auditor Engaged")
 
     def fetch_refined_data(self, slug):
         """Fetch single record by slug"""
@@ -292,19 +225,19 @@ Your output MUST follow this EXACT structure:
                 if self._validate_audit_content(content, keyword):
                     return content
                 else:
-                    print(f"   ⚠️ Audit content validation failed (attempt {attempt+1}/{retries}), retrying...")
+                    config.log(f"   [Warn] Audit content validation failed (attempt {attempt+1}/{retries}), retrying...", level="WARN")
                     
             except Exception as e:
                 err_str = str(e)
                 if "429" in err_str or "rate" in err_str.lower():
                     wait = 15 * (attempt + 1)
-                    print(f"   ⏳ Rate limited. Waiting {wait}s... (attempt {attempt+1}/{retries})")
+                    config.log(f"   [Warn] Rate limited. Waiting {wait}s... (attempt {attempt+1}/{retries})", level="WARN")
                     time.sleep(wait)
                 elif attempt < retries - 1:
-                    print(f"   ⚠️ AI Error (attempt {attempt+1}/{retries}): {e}. Retrying in 5s...")
+                    config.log(f"   [Warn] AI Error (attempt {attempt+1}/{retries}): {e}. Retrying in 5s...", level="WARN")
                     time.sleep(5)
                 else:
-                    print(f"   ❌ AI Generation Failed after {retries} attempts: {e}")
+                    config.log(f"   [Error] AI Generation Failed after {retries} attempts: {e}", level="ERROR")
                     return None
         
         return None
@@ -318,7 +251,7 @@ Your output MUST follow this EXACT structure:
         forbidden_phrases = ["Not Mentioned", "Unknown", "N/A", "Not specified", "Not provided"]
         for phrase in forbidden_phrases:
             if phrase.lower() in content.lower():
-                print(f"   ❌ Validation failed: Contains forbidden phrase '{phrase}'")
+                config.log(f"   [Error] Validation failed: Contains forbidden phrase '{phrase}'", level="ERROR")
                 return False
         
         # Check for required sections
@@ -326,17 +259,17 @@ Your output MUST follow this EXACT structure:
         content_lower = content.lower()
         for section in required_sections:
             if section.lower() not in content_lower:
-                print(f"   ❌ Validation failed: Missing section '{section}'")
+                config.log(f"   [Error] Validation failed: Missing section '{section}'", level="ERROR")
                 return False
         
         # Check for evidence citations
         if "(Ref:" not in content and "[ESTIMATED:" not in content:
-            print(f"   ⚠️ Validation warning: No evidence citations found")
+            config.log(f"   [Warn] Validation warning: No evidence citations found", level="WARN")
             # Not failing, just warning
         
         # Check length
         if len(content) < 1500:
-            print(f"   ⚠️ Validation warning: Content too short ({len(content)} chars)")
+            config.log(f"   [Warn] Validation warning: Content too short ({len(content)} chars)", level="WARN")
         
         return True
 
@@ -349,19 +282,19 @@ Your output MUST follow this EXACT structure:
                     self.supabase.storage.from_("audit-reports").upload(
                         file_name, f, {"content-type": "application/pdf", "x-upsert": "true"}
                     )
-                print(f"   ✨ [Cloud] Uploaded as {file_name}")
-                sb_url = self.config['url'].rstrip('/')
+                config.log(f"   [Info] [Cloud] Uploaded as {file_name}")
+                sb_url = config.supabase_url.rstrip('/')
                 cloud_url = f"{sb_url}/storage/v1/object/public/audit-reports/{file_name}"
                 if record_id:
                     self.supabase.table("grich_keywords_pool").update({"pdf_url": cloud_url}).eq("id", record_id).execute()
-                    print(f"   📝 [DB] pdf_url saved.")
+                    config.log(f"   [Info] [DB] pdf_url saved.")
                 return True
             except Exception as e:
                 if attempt < retries - 1:
-                    print(f"   ⚠️ Upload Error (attempt {attempt+1}/{retries}): {e}. Retrying in 3s...")
+                    config.log(f"   [Warn] Upload Error (attempt {attempt+1}/{retries}): {e}. Retrying in 3s...", level="WARN")
                     time.sleep(3)
                 else:
-                    print(f"   ❌ Cloud Upload Failed after {retries} attempts: {e}")
+                    config.log(f"   [Error] Cloud Upload Failed after {retries} attempts: {e}", level="ERROR")
                     return False
 
     def _create_pdf_styles(self):
@@ -468,27 +401,27 @@ Your output MUST follow this EXACT structure:
         """Create 21-point audit table"""
         # Sample audit points - in production would be generated from content
         audit_points = [
-            ["✓", "Eligibility Criteria Verified", "Pass"],
-            ["✓", "Application Fee Confirmed", "Pass"],
-            ["✓", "Processing Timeline Documented", "Pass"],
-            ["✓", "Educational Requirements", "Pass"],
-            ["✓", "Experience Requirements", "Pass"],
-            ["✓", "Background Check Protocol", "Pass"],
-            ["✓", "Fingerprint Requirements", "Pass"],
-            ["✓", "Exam Requirements (if applicable)", "Pass"],
-            ["✓", "Continuing Education", "Pass"],
-            ["✓", "License Renewal Cycle", "Pass"],
-            ["✓", "Reciprocity Agreements", "Pass"],
-            ["✓", "State-Specific Endorsements", "Pass"],
-            ["✓", "Online Application Available", "Pass"],
-            ["✓", "Mail-in Option Available", "Pass"],
-            ["✓", "Expedited Processing Available", "Review"],
-            ["✓", "Military Priority Pathway", "Review"],
-            ["✓", "Emergency Waiver Provisions", "Review"],
-            ["✓", "Appeal Process Documented", "Pass"],
-            ["✓", "Complaint Process Documented", "Pass"],
-            ["✓", "Verification Portal Access", "Pass"],
-            ["✓", "Regulatory Contact Information", "Pass"]
+            ["V", "Eligibility Criteria Verified", "Pass"],
+            ["V", "Application Fee Confirmed", "Pass"],
+            ["V", "Processing Timeline Documented", "Pass"],
+            ["V", "Educational Requirements", "Pass"],
+            ["V", "Experience Requirements", "Pass"],
+            ["V", "Background Check Protocol", "Pass"],
+            ["V", "Fingerprint Requirements", "Pass"],
+            ["V", "Exam Requirements (if applicable)", "Pass"],
+            ["V", "Continuing Education", "Pass"],
+            ["V", "License Renewal Cycle", "Pass"],
+            ["V", "Reciprocity Agreements", "Pass"],
+            ["V", "State-Specific Endorsements", "Pass"],
+            ["V", "Online Application Available", "Pass"],
+            ["V", "Mail-in Option Available", "Pass"],
+            ["V", "Expedited Processing Available", "Review"],
+            ["V", "Military Priority Pathway", "Review"],
+            ["V", "Emergency Waiver Provisions", "Review"],
+            ["V", "Appeal Process Documented", "Pass"],
+            ["V", "Complaint Process Documented", "Pass"],
+            ["V", "Verification Portal Access", "Pass"],
+            ["V", "Regulatory Contact Information", "Pass"]
         ]
         
         # Create table
@@ -524,12 +457,12 @@ Your output MUST follow this EXACT structure:
     def _create_auditor_seal(self):
         """Create ASCII auditor seal for PDF"""
         seal_text = """
-╔══════════════════════════════════════════════╗
-║           OFFICIAL AUDITOR SEAL              ║
-║         GRICH COMPLIANCE NETWORK             ║
-║           2026 CERTIFIED REPORT              ║
-║       DATA VERIFIED AS OF: {date}        ║
-╚══════════════════════════════════════════════╝
++==============================================+
+|           OFFICIAL AUDITOR SEAL              |
+|         GRICH COMPLIANCE NETWORK             |
+|           2026 CERTIFIED REPORT              |
+|       DATA VERIFIED AS OF: {date}        |
++==============================================+
         """.format(date=datetime.now().strftime('%Y-%m-%d'))
         return seal_text
 
@@ -582,7 +515,7 @@ Your output MUST follow this EXACT structure:
                 # Simple table row
                 cells = [cell.strip() for cell in line.split('|') if cell.strip()]
                 if cells and len(cells) > 1:
-                    story.append(Paragraph(' • '.join(cells), styles['AuditText']))
+                    story.append(Paragraph(' - '.join(cells), styles['AuditText']))
             # Handle evidence citations
             elif '(Ref:' in line or '[ESTIMATED:' in line:
                 story.append(Paragraph(line, styles['Evidence']))
@@ -603,7 +536,7 @@ Your output MUST follow this EXACT structure:
         story.append(Spacer(1, 20))
         
         # Add auditor seal
-        story.append(Paragraph(self._create_auditor_seal().replace('║', '|').replace('╔', '+').replace('╚', '+').replace('═', '=').replace('╗', '+').replace('╝', '+'), 
+        story.append(Paragraph(self._create_auditor_seal(), 
                               ParagraphStyle(name='Seal', fontName='Courier', fontSize=9, alignment=TA_CENTER)))
         story.append(Spacer(1, 30))
         
@@ -628,10 +561,10 @@ Your output MUST follow this EXACT structure:
         records = self.fetch_unreported_records(limit)
         total = len(records)
         if not records:
-            print("💤 No unreported records found. All PDFs may already be generated!")
+            config.log("[Info] No unreported records found. All PDFs may already be generated!")
             return
         
-        print(f"\n📋 Found {total} records without PDF. Starting professional audit generation...\n")
+        config.log(f"\n[Info] Found {total} records without PDF. Starting professional audit generation...\n")
         
         # --- STATE MANAGEMENT START ---
         state_dir = os.path.join(".agent", "state")
@@ -644,9 +577,9 @@ Your output MUST follow this EXACT structure:
                 with open(state_file, 'r') as f:
                     state = json.load(f)
                     processed_slugs = state.get("processed_today", [])
-                    print(f"📦 [State] Loaded {len(processed_slugs)} processed slugs from artifact.")
+                    config.log(f"[State] Loaded {len(processed_slugs)} processed slugs from artifact.")
             except Exception as e:
-                print(f"⚠️ Failed to load state: {e}")
+                config.log(f"[Warn] Failed to load state: {e}", level="WARN")
         # --- STATE MANAGEMENT END ---
 
         success_count = 0
@@ -655,18 +588,18 @@ Your output MUST follow this EXACT structure:
         for i, r in enumerate(records, 1):
             slug = r['slug']
             if slug in processed_slugs:
-                 print(f"⏭️ [Skip] [{i}/{total}] {slug} already processed in current batch (Artifact state).")
+                 config.log(f"[Info] [Skip] [{i}/{total}] {slug} already processed in current batch (Artifact state).")
                  continue
                  
-            print(f"[{i}/{total}] 📄 Auditing: {slug}")
+            config.log(f"[{i}/{total}] [Info] Auditing: {slug}")
             
             # Triple verification: Check ID binding
             if r.get('content_json', {}).get('keyword_id') and r['content_json']['keyword_id'] != r['id']:
-                print(f"   ⚠️ ID MISMATCH: Data may be mismatched. Proceeding with caution.")
+                config.log(f"   [Warn] ID MISMATCH: Data may be mismatched. Proceeding with caution.", level="WARN")
             
             logic = self.generate_audit_logic(r)
             if logic:
-                print(f"   ✅ Audit logic generated ({len(logic)} chars)")
+                config.log(f"   [Info] Audit logic generated ({len(logic)} chars)")
                 
                 # Retry logic for PDF render and upload
                 max_retries = 3
@@ -675,7 +608,7 @@ Your output MUST follow this EXACT structure:
                         ok = self.render_pdf(logic, slug, r['keyword'], r['id'])
                         if ok:
                             success_count += 1
-                            print(f"   📊 PDF rendered and uploaded")
+                            config.log(f"   [Success] PDF rendered and uploaded")
                             
                             # Update state
                             processed_slugs.append(slug)
@@ -683,30 +616,30 @@ Your output MUST follow this EXACT structure:
                                 json.dump({"processed_today": processed_slugs, "last_updated": time.time()}, f)
                             break # Success, exit retry loop
                         else:
-                            print(f"   ❌ PDF rendering/upload failed (Attempt {attempt+1}/{max_retries})")
+                            config.log(f"   [Error] PDF rendering/upload failed (Attempt {attempt+1}/{max_retries})", level="ERROR")
                             if attempt == max_retries - 1:
                                 fail_count += 1
                     except Exception as e:
-                         print(f"   ❌ Exception during PDF process (Attempt {attempt+1}/{max_retries}): {e}")
+                         config.log(f"   [Error] Exception during PDF process (Attempt {attempt+1}/{max_retries}): {e}", level="ERROR")
                          if attempt == max_retries - 1:
                                 fail_count += 1
                     time.sleep(5) # Delay between retries
             else:
                 fail_count += 1
-                print(f"   ❌ Audit logic generation failed")
+                config.log(f"   [Error] Audit logic generation failed", level="ERROR")
             
             # Rate limit protection
             if i % 3 == 0 and i < total:
-                print(f"   ⏸️ Batch checkpoint: {success_count} success, {fail_count} failed. Pausing 5s...")
+                config.log(f"   [Info] Batch checkpoint: {success_count} success, {fail_count} failed. Pausing 5s...")
                 time.sleep(5)
         
-        print(f"\n{'='*60}")
-        print(f"📊 BATCH AUDIT COMPLETE: {success_count}/{total} professional PDFs generated.")
-        print(f"   ✅ Success: {success_count}")
-        print(f"   ❌ Failed: {fail_count}")
+        config.log(f"\n{'='*60}")
+        config.log(f"[Info] BATCH AUDIT COMPLETE: {success_count}/{total} professional PDFs generated.")
+        config.log(f"   [Success]: {success_count}")
+        config.log(f"   [Failed]: {fail_count}")
         if success_count > 0 and fail_count == 0:
-            print(f"   🎉 PERFECT EXECUTION: All audits in this batch completed successfully!")
-        print(f"{'='*60}")
+            config.log(f"   [Success] PERFECT EXECUTION: All audits in this batch completed successfully!")
+        config.log(f"{'='*60}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -6,24 +6,19 @@ import random
 from openai import OpenAI
 from supabase import create_client, Client
 import markdown
+from matrix_config import config
 
 # ================= Matrix Composer (The Composer) - HOLY BIBLE EDITION v2.1 =================
 # Status: Final Revision (Aligns with SKILL.md)
 # Features: HTML-Only Output, Persona Rotation, Anti-N/A Logic, Double CTA, Internal Siloing.
 # ============================================================================================
 
-TOKEN_FILE = os.path.join(os.path.dirname(__file__), ".agent", "Token..txt")  # Fallback for local development
-
-# Environment variable names for cloud deployment
-ENV_SUPABASE_URL = "SUPABASE_URL"
-ENV_SUPABASE_KEY = "SUPABASE_KEY"
-ENV_DEEPSEEK_API_KEY = "DEEPSEEK_API_KEY"
-ENV_GROQ_API_KEY = "GROQ_API_KEY"
-
 class MatrixComposer:
     def __init__(self):
-        self.config = self._load_config()
-        self.supabase: Client = create_client(self.config['url'], self.config['key'])
+        if not config.is_valid():
+             raise ValueError("Configuration incomplete. Check Token..txt or environment variables.")
+
+        self.supabase: Client = create_client(config.supabase_url, config.supabase_key)
         
         # Persona Pool for Randomization (Anti-De-indexing)
         self.personas = [
@@ -34,41 +29,19 @@ class MatrixComposer:
             "Independent Licensing Industry Observer"
         ]
         
-        if self.config.get('groq_key'):
-             print("✍️ [Monetization Master] Engine: Groq Llama-3.3")
-             self.client = OpenAI(api_key=self.config['groq_key'], base_url="https://api.groq.com/openai/v1", max_retries=3)
+        self.groq_key = config.groq_key
+        self.ds_key = config.deepseek_key
+
+        if self.groq_key:
+             config.log("[Monetization Master] Engine: Groq Llama-3.3")
+             self.client = OpenAI(api_key=self.groq_key, base_url="https://api.groq.com/openai/v1", max_retries=3)
              self.model = "llama-3.3-70b-versatile"
-        elif self.config.get('ds_key'):
-             print("✍️ [Content Heavyweight] Engine: DeepSeek-V3")
-             self.client = OpenAI(api_key=self.config['ds_key'], base_url="https://api.deepseek.com", max_retries=3)
+        elif self.ds_key:
+             config.log("[Content Heavyweight] Engine: DeepSeek-V3")
+             self.client = OpenAI(api_key=self.ds_key, base_url="https://api.deepseek.com", max_retries=3)
              self.model = "deepseek-chat"
         else:
-            raise ValueError("❌ Missing API Keys.")
-
-    def _load_config(self):
-        config = {}
-        
-        # Priority 1: Read from environment variables (cloud deployment)
-        supabase_url = os.environ.get(ENV_SUPABASE_URL)
-        supabase_key = os.environ.get(ENV_SUPABASE_KEY)
-        deepseek_key = os.environ.get(ENV_DEEPSEEK_API_KEY)
-        groq_key = os.environ.get(ENV_GROQ_API_KEY)
-        
-        if supabase_url and supabase_key:
-            config['url'] = supabase_url
-            config['key'] = supabase_key
-            if deepseek_key:
-                config['ds_key'] = deepseek_key
-            if groq_key:
-                config['groq_key'] = groq_key
-            print("✅ Config loaded from environment variables.")
-            return config
-        
-        # 如果环境变量未设置，抛出异常（全自动工厂禁止依赖本地文件）
-        raise ValueError(
-            f"Critical: Environment variables {ENV_SUPABASE_URL}/{ENV_SUPABASE_KEY} not set."
-            "全自动工厂严禁依赖本地 Token..txt 文件！"
-        )
+            raise ValueError("[Error] Missing API Keys.")
 
     def fetch_records(self, target_slug=None, limit=5, force=False):
         query = self.supabase.table("grich_keywords_pool").select("*")
@@ -121,10 +94,10 @@ class MatrixComposer:
         # CTA Component (HTML Only)
         BUY_BUTTON = f"""
         <div class="monetization-box" style="background: #fff7ed; border: 2px dashed #f97316; padding: 35px; border-radius: 12px; margin: 45px 0; text-align: center;">
-            <h3 style="color: #c2410c; margin-top: 0;">🚀 Skip the Labyrinth: Get Your 2026 {keyword} Fast-Track Bible</h3>
+            <h3 style="color: #c2410c; margin-top: 0;"> Skip the Labyrinth: Get Your 2026 {keyword} Fast-Track Bible</h3>
             <p style="color: #7c2d12;">Includes supplement templates, back-door contact lists, and our proven 21-point rejection-proof checklist.</p>
             <a href="{{{{PDF_LINK}}}}" style="display: inline-block; background: #f97316; color: white; padding: 18px 45px; border-radius: 8px; font-weight: bold; text-decoration: none; font-size: 1.2rem; box-shadow: 0 10px 15px -3px rgba(249, 115, 22, 0.3);">Unlock Audit Report ($29.9)</a>
-            <p style="font-size: 0.8rem; color: #9a3412; margin-top: 15px;">🔒 100% Policy-Aligned | Instant Access | Save Months of Uncertainty</p>
+            <p style="font-size: 0.8rem; color: #9a3412; margin-top: 15px;"> 100% Policy-Aligned | Instant Access | Save Months of Uncertainty</p>
         </div>
         """
 
@@ -165,11 +138,16 @@ class MatrixComposer:
         """
 
         try:
-            print(f"   🧠 [Persona: {current_persona}] Writing {keyword} (HTML Injection)...")
+            config.log(f"   [Persona: {current_persona}] Writing {keyword} (HTML Injection)...")
             
             engines = []
-            if self.config.get('groq_key'): engines.append(('Groq', self.config['groq_key'], "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"))
-            if self.config.get('ds_key'): engines.append(('DeepSeek', self.config['ds_key'], "https://api.deepseek.com", "deepseek-chat"))
+            if self.groq_key: engines.append(('Groq', self.groq_key, "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"))
+            if self.ds_key: engines.append(('DeepSeek', self.ds_key, "https://api.deepseek.com", "deepseek-chat"))
+            
+            # 增加检查，防止没有可用引擎
+            if not engines:
+                config.log("   [Error] No available AI engines configured.", level="ERROR")
+                return None
             
             random.shuffle(engines)
             
@@ -191,13 +169,13 @@ class MatrixComposer:
                         elif "```" in content: content = content.replace("```", "")
                         return content.strip()
                     except Exception as engine_err:
-                        print(f"   ❌ {engine_name} Error: {engine_err}")
+                        config.log(f"   [Error] {engine_name} Error: {engine_err}", level="ERROR")
                         continue
                 time.sleep(10)
             
             return None
         except Exception as e:
-            print(f"   ❌ Critical Composer Error: {e}")
+            config.log(f"   [Error] Critical Composer Error: {e}", level="ERROR")
             return None
 
     def _ensure_html(self, content):
@@ -218,10 +196,10 @@ class MatrixComposer:
                     # 二次清理：基本替换作为后备
                     html_content = html_content.replace("## ", "<h2>").replace("**", "<strong>")
                 
-                print(f"   🔧 Markdown->HTML转换完成: {len(content)} -> {len(html_content)} 字符")
+                config.log(f"   [Info] Markdown->HTML transformation: {len(content)} -> {len(html_content)} chars")
                 return html_content
         except Exception as e:
-            print(f"   ⚠️ Markdown转换失败: {e}, 使用原始内容")
+            config.log(f"   [Warn] Markdown transformation failed: {e}, using original content", level="WARN")
         
         # 后备方案：基本清理
         cleaned = content
@@ -239,13 +217,13 @@ class MatrixComposer:
     def run(self, target_slug=None, batch_size=5, force=False):
         records = self.fetch_records(target_slug, limit=batch_size, force=force)
         if not records:
-            print("💤 No tasks.")
+            config.log("[Info] No tasks.")
             return
 
         if force:
-            print("🔧 [Force Mode] Will overwrite existing final_article entries.")
+            config.log("[Info] [Force Mode] Will overwrite existing final_article entries.")
         
-        print(f"🚀 [Batch Injection] Starting {len(records)} articles...")
+        config.log(f"[Info] [Batch Injection] Starting {len(records)} articles...")
         
         # --- STATE MANAGEMENT START ---
         state_dir = os.path.join(".agent", "state")
@@ -258,18 +236,18 @@ class MatrixComposer:
                 with open(state_file, 'r') as f:
                     state = json.load(f)
                     processed_slugs = state.get("processed_today", [])
-                    print(f"📦 [State] Loaded {len(processed_slugs)} processed slugs from artifact.")
+                    config.log(f"[State] Loaded {len(processed_slugs)} processed slugs from artifact.")
             except Exception as e:
-                print(f"⚠️ Failed to load state: {e}")
+                config.log(f"[Warn] Failed to load state: {e}", level="WARN")
         # --- STATE MANAGEMENT END ---
 
         for record in records:
             slug = record['slug']
             if slug in processed_slugs and not target_slug and not force:
-                 print(f"⏭️ [Skip] {slug} already processed in current batch (Artifact state).")
+                 config.log(f"[Info] [Skip] {slug} already processed in current batch (Artifact state).")
                  continue
                  
-            print(f"\n✍️ [Working] {slug}")
+            config.log(f"\n[Working] {slug}")
             article = self.compose_article(record)
             if article:
                 # 强制HTML转换：确保没有任何Markdown残留
@@ -282,7 +260,7 @@ class MatrixComposer:
                         self.supabase.table("grich_keywords_pool").update({
                             "final_article": article
                         }).eq("id", record['id']).execute()
-                        print(f"   ✅ [Inject Success] Chars: {len(article)}")
+                        config.log(f"   [Inject Success] Chars: {len(article)}")
                         
                         # Update state
                         processed_slugs.append(slug)
@@ -290,13 +268,13 @@ class MatrixComposer:
                              json.dump({"processed_today": processed_slugs, "last_updated": time.time()}, f)
                         break # Success, exit retry loop
                     except Exception as e:
-                        print(f"   ⚠️ Supabase update failed (Attempt {attempt+1}/{max_retries}): {e}")
+                        config.log(f"   [Error] Supabase update failed (Attempt {attempt+1}/{max_retries}): {e}", level="ERROR")
                         if attempt < max_retries - 1:
                             time.sleep(5)
                         else:
-                            print(f"   ❌ Final failure updating {slug}")
+                            config.log(f"   [Error] Final failure updating {slug}", level="ERROR")
             else:
-                print(f"   ⚠️ [Skipped] Failed to compose {slug}")
+                config.log(f"   [Warn] [Skipped] Failed to compose {slug}", level="WARN")
             time.sleep(2)
 
 if __name__ == "__main__":

@@ -114,7 +114,7 @@ class MatrixPDFEngine:
         <b>OFFICIAL SYSTEM BUG REPORT:</b> In 2026, the BreEZe system often fails to notify applicants of 
         'Deficient Documentation'. Do not wait for an email. <br/><br/>
         <b>BYPASS STRATEGY:</b> If your status is 'Pending' for >10 days, call <b>(916) 322-3350</b> at 
-        precisely 8:15 AM PST. Dial 분机号 (Option 4) for direct technical review. Applicants who call 
+        precisely 8:15 AM PST. Dial extension (Option 4) for direct technical review. Applicants who call 
         weekly reduce processing time by 40% compared to those who wait for the portal.
         """
         story.append(Paragraph(insight_text, self.styles['AuditBody']))
@@ -126,7 +126,7 @@ class MatrixPDFEngine:
         story.append(Paragraph(seal_text, ParagraphStyle(name='Seal', alignment=2, fontSize=8, leading=10)))
 
         self.doc.build(story)
-        print(f"✅ FINAL BIBLE PDF Generation Complete: {self.output_path}")
+        print(f"[Success] FINAL BIBLE PDF Generation Complete: {self.output_path}")
 
 if __name__ == "__main__":
     # Real test with CA Nurse data

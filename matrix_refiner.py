@@ -5,29 +5,23 @@ import pdfplumber
 import requests
 from openai import OpenAI
 from supabase import create_client, Client
+import argparse
+from matrix_config import config
 
 # ================= Configuration =================
-TOKEN_FILE = os.path.join(".agent", "Token..txt")  # Fallback for local development
 STORAGE_BUCKET = "raw-handbooks"
-
-# Environment variable names for cloud deployment
-ENV_SUPABASE_URL = "SUPABASE_URL"
-ENV_SUPABASE_KEY = "SUPABASE_KEY"
-ENV_DEEPSEEK_API_KEY = "DEEPSEEK_API_KEY"
-ENV_GROQ_API_KEY = "GROQ_API_KEY"
-ENV_ZHIPU_API_KEY = "ZHIPU_API_KEY"
-
-import argparse
 
 class MatrixRefiner:
     def __init__(self, batch_size=30):
         self.batch_size = batch_size
-        self.config = self._load_config()
-        self.supabase: Client = create_client(self.config['url'], self.config['key'])
         
-        self.zhipu_key = self.config.get('zhipu_key')
-        self.ds_key = self.config.get('ds_key')
+        if not config.is_valid():
+             raise ValueError("Configuration incomplete. Check Token..txt or environment variables.")
+
+        self.supabase: Client = create_client(config.supabase_url, config.supabase_key)
         
+        self.zhipu_key = config.zhipu_key
+        self.ds_key = config.deepseek_key
         
         # Priority: DeepSeek (Cost effective) > Zhipu (Vision capable)
         # If you need Vision, swap the order or use a flag.
@@ -35,71 +29,18 @@ class MatrixRefiner:
             # Prefer DeepSeek for text refining to save cost/avoid Zhipu balance issues
             self.client = OpenAI(api_key=self.ds_key, base_url="https://api.deepseek.com")
             self.model = "deepseek-chat"
-            print("🏭 Refinery Online (DeepSeek Engine).")
+            config.log("[Info] Refinery Online (DeepSeek Engine).")
         elif self.zhipu_key:
             # Fallback to ZhipuAI
             self.client = OpenAI(api_key=self.zhipu_key, base_url="https://open.bigmodel.cn/api/paas/v4/")
             self.model = "glm-4v-flash"
-            print("🏭 Refinery Online (GLM-4V-Flash Engine).")
+            config.log("[Info] Refinery Online (GLM-4V-Flash Engine).")
         else:
-            raise ValueError("❌ Missing API Key. Please set DEEPSEEK_API_KEY or ZHIPU_API_KEY.")
-
-    def _load_config(self):
-        config = {}
-        
-        # Priority 1: Read from environment variables (cloud deployment)
-        supabase_url = os.environ.get(ENV_SUPABASE_URL)
-        supabase_key = os.environ.get(ENV_SUPABASE_KEY)
-        deepseek_key = os.environ.get(ENV_DEEPSEEK_API_KEY)
-        zhipu_key = os.environ.get(ENV_ZHIPU_API_KEY)
-        
-        if supabase_url and supabase_key:
-            config['url'] = supabase_url
-            config['key'] = supabase_key
-            if zhipu_key:
-                config['zhipu_key'] = zhipu_key
-            elif deepseek_key:
-                config['ds_key'] = deepseek_key
-            print("✅ Config loaded from environment variables.")
-            return config
-        
-        # Priority 2: Fallback to local Token file (development)
-        token_path = None
-        if os.path.exists(TOKEN_FILE):
-            token_path = TOKEN_FILE
-        else:
-            # Try alternative relative path
-            alt_path = os.path.join("..", ".agent", "Token..txt")
-            if os.path.exists(alt_path):
-                token_path = alt_path
-        
-        if not token_path:
-            raise FileNotFoundError(
-                f"Critical: {TOKEN_FILE} not found and environment variables {ENV_SUPABASE_URL}/{ENV_SUPABASE_KEY} not set."
-            )
-        
-        with open(token_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line: continue
-                if "Project URL:" in line:
-                    config['url'] = line.split("Project URL:")[1].strip()
-                if "Secret keys:" in line:
-                    config['key'] = line.split("Secret keys:")[1].strip()
-                if "ZHIPUAPI:" in line:
-                    config['zhipu_key'] = line.split("ZHIPUAPI:")[1].strip()
-                if "DSAPI:" in line:
-                    config['ds_key'] = line.split("DSAPI:")[1].strip()
-        
-        if 'url' not in config or 'key' not in config:
-            raise ValueError("Configuration incomplete. Check Token..txt or environment variables.")
-        
-        print("⚠️  Config loaded from local Token file (development mode).")
-        return config
+            raise ValueError("[Error] Missing API Key. Please set DEEPSEEK_API_KEY or ZHIPU_API_KEY.")
 
     def fetch_unrefined_records(self):
         """Fetch records that are downloaded but have no content_json"""
-        print("📊 Fetching unrefined records...")
+        config.log("[Info] Fetching unrefined records...")
         try:
             # Also exclude failed refinements to avoid dead loop
             # Check if is_refined is False? Schema has is_refined default false.
@@ -112,7 +53,7 @@ class MatrixRefiner:
                 .execute()
             return res.data
         except Exception as e:
-            print(f"❌ Fetch Error: {e}")
+            config.log(f"[Error] Fetch Error: {e}", level="ERROR")
             return []
 
     def download_pdf(self, slug):
@@ -124,7 +65,7 @@ class MatrixRefiner:
                 f.write(data)
             return local_path
         except Exception as e:
-            print(f"   ❌ Download failed: {e}")
+            config.log(f"   [Error] Download failed: {e}", level="ERROR")
             return None
 
     def extract_high_value_text(self, pdf_path):
@@ -144,14 +85,14 @@ class MatrixRefiner:
                 
                 for i, page in enumerate(pdf.pages):
                     if i >= max_pages_to_scan:
-                        print(f"   ⚠️ Reached max page scan limit ({max_pages_to_scan}). Stopping extraction.")
+                        config.log(f"   [Warn] Reached max page scan limit ({max_pages_to_scan}). Stopping extraction.", level="WARN")
                         break
                         
                     try:
                          # Sometimes extract_text hangs on complex layout
                         text = page.extract_text() or ""
                     except Exception as e:
-                        print(f"   ⚠️ Page {i+1} extraction failed: {e}")
+                        config.log(f"   [Warn] Page {i+1} extraction failed: {e}", level="WARN")
                         continue
                         
                     text_lower = text.lower()
@@ -159,12 +100,12 @@ class MatrixRefiner:
                         extracted_text += f"\n--- Page {i+1} ---\n{text}"
                         read_pages += 1
                     
-            print(f"   📄 Extracted {read_pages}/{total_pages} pages.")
+            config.log(f"   [Info] Extracted {read_pages}/{total_pages} pages.")
             if not extracted_text.strip():
                  return None
             return extracted_text
         except Exception as e:
-            print(f"   ❌ PDF Extraction Error: {e}")
+            config.log(f"   [Error] PDF Extraction Error: {e}", level="ERROR")
             return None
 
     def refine_with_ai(self, raw_text):
@@ -200,9 +141,9 @@ class MatrixRefiner:
         except Exception as e:
             error_msg = str(e)
             if "1113" in error_msg or "balance" in error_msg.lower():
-                print(f"   ❌ Insufficient Balance for {self.model}. Please check your account.")
+                config.log(f"   [Error] Insufficient Balance for {self.model}. Please check your account.", level="ERROR")
                 if self.model == "glm-4v" and self.ds_key:
-                    print("   🔄 Attempting fallback to DeepSeek...")
+                    config.log("   [Info] Attempting fallback to DeepSeek...")
                     try:
                         fallback_client = OpenAI(api_key=self.ds_key, base_url="https://api.deepseek.com")
                         response = fallback_client.chat.completions.create(
@@ -218,9 +159,9 @@ class MatrixRefiner:
                             content = content.replace("```json", "").replace("```", "")
                         return content.strip()
                     except Exception as fallback_e:
-                        print(f"   ❌ Fallback failed: {fallback_e}")
+                        config.log(f"   [Error] Fallback failed: {fallback_e}", level="ERROR")
             
-            print(f"   ❌ AI API Error ({self.model}): {e}")
+            config.log(f"   [Error] AI API Error ({self.model}): {e}", level="ERROR")
             return None
 
     def update_db(self, record_id, json_data):
@@ -230,9 +171,9 @@ class MatrixRefiner:
                 "content_json": parsed,
                 "is_refined": True
             }).eq("id", record_id).execute()
-            print("   ✅ Database Updated.")
+            config.log("   [Success] Database Updated.")
         except json.JSONDecodeError:
-            print("   ❌ Failed to parse JSON.")
+            config.log("   [Error] Failed to parse JSON.", level="ERROR")
             # Mark as refined but with error so we don't loop
             self.supabase.table("grich_keywords_pool").update({
                 "content_json": {"error": "json_parse_failed"},
@@ -241,7 +182,7 @@ class MatrixRefiner:
 
     def mark_failed_refine(self, record_id, reason):
         # Update content_json with error to stop loop
-        print(f"   ⚠️ Marking as failed: {reason}")
+        config.log(f"   [Warn] Marking as failed: {reason}", level="WARN")
         self.supabase.table("grich_keywords_pool").update({
             "content_json": {"error": reason},
             "is_refined": True # Mark refined so we don't retry same bad file
@@ -250,16 +191,16 @@ class MatrixRefiner:
     def run_batch(self):
         records = self.fetch_unrefined_records()
         if not records:
-            print("💤 No unrefined records found.")
+            config.log("[Info] No unrefined records found.")
             return
 
-        print(f"🚀 Processing {len(records)} records...")
+        config.log(f"[Info] Processing {len(records)} records...")
         failures = []
         
         for record in records:
             slug = record['slug']
             rid = record['id']
-            print(f"\n🔨 Refining: {slug}")
+            config.log(f"\n[Working] Refining: {slug}")
             
             # 1. Download
             pdf_path = self.download_pdf(slug)
@@ -271,7 +212,7 @@ class MatrixRefiner:
             # 2. Extract
             text = self.extract_high_value_text(pdf_path)
             if not text:
-                print("   ⚠️ Empty text or scan.")
+                config.log("   [Warn] Empty text or scan.", level="WARN")
                 self.mark_failed_refine(rid, "empty_text_or_scan")
                 failures.append(slug)
                 if os.path.exists(pdf_path): os.remove(pdf_path)
@@ -293,9 +234,9 @@ class MatrixRefiner:
             time.sleep(1)
             
         if failures:
-            print("\n⚠️ Failure Report (Saved to DB as errors):")
+            config.log("\n[Warn] Failure Report (Saved to DB as errors):", level="WARN")
             for f in failures:
-                print(f"   - {f}")
+                config.log(f"   - {f}", level="WARN")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Matrix Refiner")

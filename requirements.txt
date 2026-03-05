@@ -4,7 +4,6 @@ reportlab
 pypdf2
 playwright
 python-dotenv
-argparse
 pdfplumber
 requests
 urllib3

@@ -7,17 +7,11 @@ import requests
 import csv
 from datetime import datetime, timezone
 from supabase import create_client, Client
+from matrix_config import config
 
 # ================= Configuration & Constants =================
-TOKEN_FILE = os.path.join(".agent", "Token..txt")  # Fallback for local development
 SKILL_FILE = os.path.join(".agent", "skills", "01-grich-miner", "SKILL.md")
 SEED_CSV = "heavy_mine_20260113.csv"
-
-# Environment variable names for cloud deployment
-ENV_SUPABASE_URL = "SUPABASE_URL"
-ENV_SUPABASE_KEY = "SUPABASE_KEY"
-ENV_DEEPSEEK_API_KEY = "DEEPSEEK_API_KEY"
-ENV_GROQ_API_KEY = "GROQ_API_KEY"
 
 # V42.4 Dyeing Protocol
 DYE_MAP = [
@@ -46,63 +40,22 @@ STATES = {
 
 class GrichMiner:
     def __init__(self):
-        self.config = self._load_config()
-        self.supabase: Client = create_client(self.config['url'], self.config['key'])
-        print(f"🔌 Connected to Supabase: {self.config['url']}")
+        if not config.is_valid():
+            raise ValueError("Configuration incomplete. Check Token..txt or environment variables.")
+            
+        self.supabase: Client = create_client(config.supabase_url, config.supabase_key)
+        config.log(f"[Info] Connected to Supabase: {config.supabase_url}")
         
         self.ua_list = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
         ]
 
-    def _load_config(self):
-        config = {}
-        
-        # Priority 1: Read from environment variables (cloud deployment)
-        supabase_url = os.environ.get(ENV_SUPABASE_URL)
-        supabase_key = os.environ.get(ENV_SUPABASE_KEY)
-        
-        if supabase_url and supabase_key:
-            config['url'] = supabase_url
-            config['key'] = supabase_key
-            print("✅ Config loaded from environment variables.")
-            return config
-        
-        # Priority 2: Fallback to local Token file (development)
-        token_path = None
-        if os.path.exists(TOKEN_FILE):
-            token_path = TOKEN_FILE
-        else:
-            # Try alternative relative path
-            alt_path = os.path.join("..", ".agent", "Token..txt")
-            if os.path.exists(alt_path):
-                token_path = alt_path
-        
-        if not token_path:
-            raise FileNotFoundError(
-                f"Critical: {TOKEN_FILE} not found and environment variables {ENV_SUPABASE_URL}/{ENV_SUPABASE_KEY} not set."
-            )
-        
-        with open(token_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line: continue
-                if "Project URL:" in line:
-                    config['url'] = line.split("Project URL:")[1].strip()
-                if "Secret keys:" in line:
-                    config['key'] = line.split("Secret keys:")[1].strip()
-        
-        if 'url' not in config or 'key' not in config:
-            raise ValueError("Configuration incomplete. Check Token..txt or environment variables.")
-        
-        print("⚠️  Config loaded from local Token file (development mode).")
-        return config
-
     def load_csv_seeds(self):
         """Inject Fuel from CSV"""
         seeds = []
         if not os.path.exists(SEED_CSV):
-            print(f"⚠️ Warning: {SEED_CSV} not found. Falling back to defaults.")
+            config.log(f"[Warn] Warning: {SEED_CSV} not found. Falling back to defaults.", level="WARN")
             return ["nursing license reciprocity Texas"] # Fallback
 
         try:
@@ -112,10 +65,10 @@ class GrichMiner:
                 for row in reader:
                     if row and row[0].strip():
                         seeds.append(row[0].strip())
-            print(f"⛽ FUEL INJECTED: Loaded {len(seeds)} seeds from valid CSV source.")
+            config.log(f"[Info] FUEL INJECTED: Loaded {len(seeds)} seeds from valid CSV source.")
             return seeds
         except Exception as e:
-            print(f"❌ CSV Load Error: {e}")
+            config.log(f"[Error] CSV Load Error: {e}", level="ERROR")
             return []
 
     def fetch_suggestions(self, query):
@@ -206,12 +159,12 @@ class GrichMiner:
         """
         FULL THROTTLE: Seed + [a-z] + [a-z] (FULL)
         """
-        print(f"🚀 Grich Miner V42.4 FULL THROTTLE MODE.")
-        print("Protocol: CSV Injection | Full Alpha L3 | Anti-Ban Enabled")
+        config.log(f"[Info] Grich Miner V42.4 FULL THROTTLE MODE.")
+        config.log("Protocol: CSV Injection | Full Alpha L3 | Anti-Ban Enabled")
         
         seeds = self.load_csv_seeds()
         if not seeds:
-            print("No seeds loaded. Aborting.")
+            config.log("No seeds loaded. Aborting.", level="WARN")
             return
 
         alphabet = 'abcdefghijklmnopqrstuvwxyz'
@@ -221,7 +174,7 @@ class GrichMiner:
         for seed in seeds:
             count += 1
             seed_context = self.analyze_seed_context(seed)
-            print(f"\n[{count}/{total_seeds}] 🔥 ROOT JOB: {seed} ({seed_context.get('category')})")
+            config.log(f"\n[{count}/{total_seeds}] ROOT JOB: {seed} ({seed_context.get('category')})")
 
             # === Layer 1: Base Suggestions ===
             l1_suggestions = self.fetch_suggestions(seed)
@@ -255,7 +208,7 @@ class GrichMiner:
 
     def process_batch(self, keywords, context, layer):
         if not keywords: return
-        print(f"   [L{layer}] Processing {len(keywords)} keywords...")
+        config.log(f"   [L{layer}] Processing {len(keywords)} keywords...")
         for kw in keywords:
             self.save_keyword(kw, context)
 
@@ -264,4 +217,4 @@ if __name__ == "__main__":
         miner = GrichMiner()
         miner.recursive_mine()
     except Exception as e:
-        print(f"🔥 CRITICAL FAILURE: {e}")
+        config.log(f"[Error] CRITICAL FAILURE: {e}", level="ERROR")
