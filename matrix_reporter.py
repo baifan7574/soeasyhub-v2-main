@@ -586,15 +586,19 @@ Your output MUST follow this EXACT structure:
         fail_count = 0
         
         for i, r in enumerate(records, 1):
-            slug = r['slug']
+            slug = r.get('slug', 'Unknown')
             if slug in processed_slugs:
                  config.log(f"[Info] [Skip] [{i}/{total}] {slug} already processed in current batch (Artifact state).")
                  continue
                  
             config.log(f"[{i}/{total}] [Info] Auditing: {slug}")
             
+            if not r or not r.get('content_json'):
+                config.log(f"⚠️ 跳过空记录: ID {r.get('id') if r else 'Unknown'}")
+                continue
+            
             # Triple verification: Check ID binding
-            if r.get('content_json', {}).get('keyword_id') and r['content_json']['keyword_id'] != r['id']:
+            if isinstance(r['content_json'], dict) and r['content_json'].get('keyword_id') and r['content_json']['keyword_id'] != r['id']:
                 config.log(f"   [Warn] ID MISMATCH: Data may be mismatched. Proceeding with caution.", level="WARN")
             
             logic = self.generate_audit_logic(r)
