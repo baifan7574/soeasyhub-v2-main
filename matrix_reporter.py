@@ -100,7 +100,7 @@ class MatrixReporter:
 ## == HOLY BIBLE RULES (NON-NEGOTIABLE) ==
 
 ### 1. ZERO "NOT MENTIONED" PROTOCOL
-- **ABSOLUTE BAN**: Under no circumstances use "Not Mentioned", "Unknown", "N/A", or similar empty indicators.
+- **ABSOLUTE BAN**: Under no circumstances use "Not Mentioned", "Unknown", "N/A", "Not specified", or similar empty indicators.
 - **INDUSTRY BENCHMARK SIMULATOR**: If a field is empty, you MUST:
   1. Search your 2026 knowledge base for similar state/profession benchmarks
   2. Provide a realistic ESTIMATED RANGE (e.g., "$150-$450", "4-12 weeks")
