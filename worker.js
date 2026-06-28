@@ -1101,40 +1101,57 @@ function renderFallbackHome(reason = "") {
     .fallback-hero { padding: 90px 20px 60px; background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); text-align: center; border-bottom: 1px solid var(--border); }
     .fallback-hero h1 { color: var(--secondary); font-size: 3rem; line-height: 1.15; margin-bottom: 18px; font-weight: 800; }
     .fallback-hero p { max-width: 760px; margin: 0 auto 26px; color: var(--text-muted); font-size: 1.15rem; }
+    .fallback-search { max-width: 680px; margin: 28px auto 0; }
+    .fallback-search input { width: 100%; border: 2px solid var(--border); border-radius: 999px; padding: 18px 22px; font-size: 1rem; outline: none; }
+    .fallback-search input:focus { border-color: var(--primary); }
+    .fallback-count { max-width: 1100px; margin: 36px auto 0; padding: 0 20px; color: #64748b; font-size: .95rem; }
     .fallback-grid { max-width: 1100px; margin: 50px auto; padding: 0 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
     .fallback-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 24px; text-decoration: none; color: inherit; box-shadow: 0 4px 12px rgba(15,23,42,.04); }
     .fallback-card h3 { color: var(--secondary); margin-bottom: 10px; }
     .fallback-card p { color: var(--text-muted); }
     .status-note { max-width: 900px; margin: 20px auto; color: #64748b; font-size: .9rem; text-align: center; }
   `;
-  const cards = [
-    ["RN License Renewal", "/p/rn-license-renewal", "Nursing renewal requirements, fees, forms, and checklist risks."],
-    ["CPA License Transfer", "/p/cpa-license-transfer", "Cross-state accounting license and reciprocity review."],
-    ["Teacher Certification", "/p/teacher-certification-transfer", "State-by-state teacher credential transfer overview."],
-    ["Counselor License", "/p/counselor-license-reciprocity", "Counselor reciprocity and application checklist."],
-    ["Contractor License", "/p/contractor-license-reciprocity", "Contractor licensing steps and common filing issues."],
-    ["Business Registration", "/p/business-registration-compliance", "Multi-state business registration and compliance overview."]
-  ].map(([title, href, desc]) => `
-    <a class="fallback-card" href="${href}">
+  const cards = FALLBACK_SITEMAP_SLUGS.map(slug => {
+    const title = toTitleFromSlug(slug);
+    return `
+    <a class="fallback-card audit-card" href="/p/${slug}">
       <h3>${title}</h3>
-      <p>${desc}</p>
-    </a>`).join("");
+      <p>Compliance overview, filing checklist, fee review, and common application risks for ${title}.</p>
+    </a>`;
+  }).join("");
 
   const content = `
     <section class="fallback-hero">
       <h1>State Compliance Guides That Stay Useful</h1>
       <p>Clear, practical checklists for licensing, renewal, reciprocity, and business compliance. Start with a free guide, then unlock a paid packet when you need a tighter filing checklist.</p>
       ${fallbackPaymentBlock("general-compliance-packet")}
+      <div class="fallback-search">
+        <input id="archiveSearch" type="search" placeholder="Search ${FALLBACK_SITEMAP_SLUGS.length} compliance guides...">
+      </div>
     </section>
+    <p class="fallback-count">Local archive mode: showing ${FALLBACK_SITEMAP_SLUGS.length} saved compliance guide URLs while the live database is unavailable.</p>
     <div class="fallback-grid">${cards}</div>
     ${reason ? `<p class="status-note">Live database content is temporarily unavailable, so this stable fallback page is being served.</p>` : ""}`;
+  const scripts = `
+    <script>
+      const archiveSearch = document.getElementById('archiveSearch');
+      if (archiveSearch) {
+        archiveSearch.addEventListener('input', function(event) {
+          const term = event.target.value.toLowerCase();
+          document.querySelectorAll('.audit-card').forEach(function(card) {
+            card.style.display = card.textContent.toLowerCase().includes(term) ? '' : 'none';
+          });
+        });
+      }
+    </script>`;
 
   return renderHtml(
     "Multi-State Business Compliance Guides",
     "SoEasyHub provides clear compliance guides and paid checklist packets for licensing, renewal, reciprocity, and business filings.",
     "https://soeasyhub.com/",
     pageCss,
-    content
+    content,
+    scripts
   );
 }
 
