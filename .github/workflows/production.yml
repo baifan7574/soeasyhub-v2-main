@@ -165,7 +165,34 @@ jobs:
           # Export for subsequent steps
           echo "WORKING_DIR=$WORKING_DIR" >> $GITHUB_ENV
 
+      - name: Database Preflight
+        run: |
+          cd ${{ env.WORKING_DIR }}
+          python - <<'PY'
+          import os
+          import socket
+          from urllib.parse import urlparse
+
+          url = os.environ.get("SUPABASE_URL", "").strip()
+          host = urlparse(url).hostname if url else None
+          if not host:
+              print("DB_AVAILABLE=false")
+              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
+              raise SystemExit(0)
+
+          try:
+              socket.gethostbyname(host)
+              print("DB_AVAILABLE=true")
+              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=true\n")
+          except OSError as exc:
+              print(f"DB_AVAILABLE=false: {host} cannot be resolved: {exc}")
+              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
+          PY
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+
       - name: Phase 3 Matrix Refiner
+        if: env.DB_AVAILABLE != 'false'
         timeout-minutes: 60
         run: |
           cd ${{ env.WORKING_DIR }}
@@ -178,6 +205,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
       - name: Phase 4 Matrix Composer
+        if: env.DB_AVAILABLE != 'false'
         run: |
           cd ${{ env.WORKING_DIR }}
           python matrix_composer.py --batch 50
@@ -190,6 +218,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
       - name: Phase 5 Matrix Reporter
+        if: env.DB_AVAILABLE != 'false'
         run: |
           cd ${{ env.WORKING_DIR }}
           python matrix_reporter.py --batch 50
@@ -201,11 +230,13 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
       - name: Setup Git Identity
+        if: env.DB_AVAILABLE != 'false'
         run: |
           git config --global user.name "Matrix Factory Bot"
           git config --global user.email "bot@soeasyhub.com"
 
       - name: Phase 6 Matrix Deployer
+        if: env.DB_AVAILABLE != 'false'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -214,6 +245,7 @@ jobs:
           python matrix_deployer.py
 
       - name: Commit and Push Changes (Robust Version)
+        if: env.DB_AVAILABLE != 'false'
         run: |
           git add .
           if git diff --staged --quiet; then
