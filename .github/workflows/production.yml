@@ -78,7 +78,34 @@ jobs:
           # We will store the relative path to the root.
           echo "WORKING_DIR=$WORKING_DIR" >> $GITHUB_ENV
 
+      - name: Database Preflight
+        run: |
+          cd ${{ env.WORKING_DIR }}
+          python - <<'PY'
+          import os
+          import socket
+          from urllib.parse import urlparse
+
+          url = os.environ.get("SUPABASE_URL", "").strip()
+          host = urlparse(url).hostname if url else None
+          if not host:
+              print("DB_AVAILABLE=false")
+              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
+              raise SystemExit(0)
+
+          try:
+              socket.gethostbyname(host)
+              print("DB_AVAILABLE=true")
+              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=true\n")
+          except OSError as exc:
+              print(f"DB_AVAILABLE=false: {host} cannot be resolved: {exc}")
+              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
+          PY
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+
       - name: Test Configuration
+        if: env.DB_AVAILABLE != 'false'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -90,6 +117,7 @@ jobs:
           python test_config.py
 
       - name: Phase 1 Matrix Scout (Mine Keywords)
+        if: env.DB_AVAILABLE != 'false'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
