@@ -1124,6 +1124,19 @@ function xmlHeaders(extra = {}) {
   };
 }
 
+function finalizeHtml(html) {
+  return String(html || "")
+    .replace(
+      /Secure Payment via Stripe\/PayPal[\s\S]{0,160}?Instant PDF Download/g,
+      "Secure payment via Stripe/PayPal. Instant PDF download."
+    )
+    .replace(
+      /Legally Reviewed by Bai \(Lead Counsel\)[\s\S]{0,80}?Updated/g,
+      "Reviewed by the SoEasyHub research team. Updated"
+    )
+    .replace(/閳\?[\s\S]{0,20}?/g, " ");
+}
+
 function renderHtml(title, description, canonicalUrl, pageCss, content, scripts = "") {
   return HTML_TEMPLATE
     .replace('{{TITLE}}', title)
@@ -1551,7 +1564,7 @@ export default {
                 .replace('{{CONTENT}}', gridHtml)
                 .replace('{{SCRIPTS}}', scripts);
 
-            return new Response(html, {
+            return new Response(finalizeHtml(html), {
               headers: htmlHeaders(),
             });
         }
@@ -1723,7 +1736,7 @@ export default {
             .replace('{{SCRIPTS}}', '')
             .replace('</head>', schemaHtml);
 
-        return new Response(html, {
+        return new Response(finalizeHtml(html), {
           headers: htmlHeaders(),
         });
 
@@ -1878,7 +1891,7 @@ export default {
             .replace('{{CONTENT}}', cleanStaticContent)
             .replace('{{SCRIPTS}}', '');
             
-        return new Response(html, {
+        return new Response(finalizeHtml(html), {
             headers: htmlHeaders(),
         });
     }
