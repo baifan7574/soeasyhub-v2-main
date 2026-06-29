@@ -1072,7 +1072,56 @@ function toTitleFromSlug(slug) {
   return String(slug || "state compliance guide")
     .replace(/\.html$/i, "")
     .replace(/-/g, " ")
-    .replace(/\b\w/g, char => char.toUpperCase());
+    .replace(/\b\w/g, char => char.toUpperCase())
+    .replace(/\b(Cpa|Rn|Lvn|Cna|Ceu|Cslb)\b/g, word => word.toUpperCase());
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function titleizeKeyword(keyword) {
+  return toTitleFromSlug(String(keyword || "state compliance guide").replace(/\s+/g, "-"));
+}
+
+function sanitizeArticleHtml(html) {
+  return String(html || "")
+    .replace(/<!DOCTYPE html>/gi, "")
+    .replace(/<html.*?>/gi, "")
+    .replace(/<\/html>/gi, "")
+    .replace(/<head>[\s\S]*?<\/head>/gi, "")
+    .replace(/<body.*?>/gi, "")
+    .replace(/<\/body>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[\s\S]*?<\/embed>/gi, "")
+    .replace(/\son\w+="[^"]*"/gi, "")
+    .replace(/\son\w+='[^']*'/gi, "")
+    .replace(/href=(["'])javascript:[\s\S]*?\1/gi, 'href="#"');
+}
+
+function htmlHeaders(extra = {}) {
+  return {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",
+    "X-Content-Type-Options": "nosniff",
+    ...extra
+  };
+}
+
+function xmlHeaders(extra = {}) {
+  return {
+    "Content-Type": "application/xml; charset=utf-8",
+    "Cache-Control": "public, max-age=900, stale-while-revalidate=3600",
+    "X-Content-Type-Options": "nosniff",
+    ...extra
+  };
 }
 
 function renderHtml(title, description, canonicalUrl, pageCss, content, scripts = "") {
@@ -1463,16 +1512,18 @@ export default {
                 }
 
                 const date = item.last_mined_at ? new Date(item.last_mined_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : "Feb 20, 2026";
-                const title = item.keyword.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                const safeKeyword = escapeHtml(item.keyword);
+                const title = titleizeKeyword(item.keyword);
+                const safeSlug = encodeURIComponent(item.slug);
 
                 gridHtml += `
-                <a href="/p/${item.slug}" class="card audit-card">
+                <a href="/p/${safeSlug}" class="card audit-card">
                     <div class="card-meta">
                         <span class="card-tag">${state.toUpperCase()}</span>
                         <span>${date}</span>
                     </div>
                     <h3>${title}</h3>
-                    <p>Complete regulatory breakdown for ${item.keyword} across state jurisdictions.</p>
+                    <p>Complete regulatory breakdown for ${safeKeyword} across state jurisdictions.</p>
                 </a>`;
             });
 
@@ -1501,12 +1552,12 @@ export default {
                 .replace('{{SCRIPTS}}', scripts);
 
             return new Response(html, {
-              headers: { "Content-Type": "text/html; charset=utf-8" },
+              headers: htmlHeaders(),
             });
         }
       } catch (err) {
         return new Response(renderFallbackHome(err.message), {
-          headers: { "Content-Type": "text/html; charset=utf-8", "X-SoEasyHub-Fallback": "home" },
+          headers: htmlHeaders({ "X-SoEasyHub-Fallback": "home" }),
         });
       }
     }
@@ -1528,18 +1579,12 @@ export default {
         }
 
         const article = data[0];
-        const title = article.keyword.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        const title = titleizeKeyword(article.keyword);
         const date = article.last_mined_at ? new Date(article.last_mined_at).toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'}) : "February 20, 2026";
 
         let content = article.final_article || "<p>Content pending...</p>";
         
-        // Strip out existing full HTML wrapper from the database content
-        content = content.replace(/<!DOCTYPE html>/gi, '')
-                         .replace(/<html.*?>/gi, '')
-                         .replace(/<\/html>/gi, '')
-                         .replace(/<head>[\s\S]*?<\/head>/gi, '')
-                         .replace(/<body.*?>/gi, '')
-                         .replace(/<\/body>/gi, '');
+        content = sanitizeArticleHtml(content);
 
         // Remove old monetization boxes completely
         content = content.replace(/<div class="monetization-box"[\s\S]*?<\/div>/gi, '')
@@ -1553,7 +1598,7 @@ export default {
         content = content.replace(/<h[234][^>]*>Related Pathways<\/h[234]>[\s\S]*/gi, '');
 
         // Generate the Monetization Button (Restored!)
-        const monetizationBlock = `
+        let monetizationBlock = `
         <div style="text-align: center; margin: 50px 0; background: #fff7ed; padding: 30px; border-radius: 12px; border: 2px dashed #f97316;">
             <h3 style="color: #ea580c; margin-top: 0; margin-bottom: 15px; font-size: 1.4rem;">Ready to Fast-Track Your Compliance?</h3>
             <a href="https://payhip.com/b/qoGLF?product_id=${slug}" target="_blank" rel="noopener sponsored" style="display: inline-block; background: #f97316; color: #ffffff !important; font-weight: 800; padding: 18px 36px; border-radius: 8px; text-decoration: none; font-size: 1.15rem; box-shadow: 0 4px 15px rgba(249, 115, 22, 0.4); transition: transform 0.2s;">
@@ -1561,6 +1606,10 @@ export default {
             </a>
             <p style="font-size: 0.95rem; margin-top: 15px; margin-bottom: 0; color: #64748b;">Secure Payment via Stripe/PayPal 鈥?Instant PDF Download</p>
         </div>`;
+        monetizationBlock = monetizationBlock.replace(
+          /Secure Payment via Stripe\/PayPal[\s\S]*?Instant PDF Download/,
+          "Secure payment via Stripe/PayPal. Instant PDF download."
+        );
 
         // Inject the payment button into the content (middle and end)
         const paragraphs = content.split('</p>');
@@ -1660,22 +1709,27 @@ export default {
         const schemaString = JSON.stringify(schemaObj);
         const schemaHtml = `<script type="application/ld+json">${schemaString}</script></head>`;
 
+        const cleanArticleHtml = articleHtml.replace(
+            /Legally Reviewed by Bai \(Lead Counsel\)[\s\S]*?Updated/,
+            "Reviewed by the SoEasyHub research team. Updated"
+        );
+
         const html = HTML_TEMPLATE
             .replace('{{TITLE}}', title)
             .replace('{{DESCRIPTION}}', descriptionText)
             .replace('{{CANONICAL_URL}}', `https://soeasyhub.com/p/${slug}`)
             .replace('{{PAGE_CSS}}', pageCss)
-            .replace('{{CONTENT}}', articleHtml)
+            .replace('{{CONTENT}}', cleanArticleHtml)
             .replace('{{SCRIPTS}}', '')
             .replace('</head>', schemaHtml);
 
         return new Response(html, {
-          headers: { "Content-Type": "text/html; charset=utf-8" },
+          headers: htmlHeaders(),
         });
 
       } catch (err) {
          return new Response(renderFallbackArticle(slug, err.message), {
-           headers: { "Content-Type": "text/html; charset=utf-8", "X-SoEasyHub-Fallback": "article" },
+           headers: htmlHeaders({ "X-SoEasyHub-Fallback": "article" }),
          });
       }
     }
@@ -1728,12 +1782,12 @@ export default {
             xml += `</urlset>`;
             
             return new Response(xml, {
-                headers: { "Content-Type": "application/xml" }
+                headers: xmlHeaders()
             });
 
         } catch (err) {
             return new Response(renderFallbackSitemap(), {
-                headers: { "Content-Type": "application/xml; charset=utf-8", "X-SoEasyHub-Fallback": "sitemap" },
+                headers: xmlHeaders({ "X-SoEasyHub-Fallback": "sitemap" }),
             });
         }
     }
@@ -1813,16 +1867,19 @@ export default {
 
     if (staticPages[path]) {
         const page = staticPages[path];
+        const cleanStaticContent = page.content
+            .replace(/Bai[\s\S]*?SoEasyHub was born/, "Bai, an experienced educator and compliance researcher, SoEasyHub was born");
+
         const html = HTML_TEMPLATE
             .replace('{{TITLE}}', page.title)
             .replace('{{DESCRIPTION}}', page.desc)
             .replace('{{CANONICAL_URL}}', `https://soeasyhub.com${path}`)
             .replace('{{PAGE_CSS}}', '')
-            .replace('{{CONTENT}}', page.content)
+            .replace('{{CONTENT}}', cleanStaticContent)
             .replace('{{SCRIPTS}}', '');
             
         return new Response(html, {
-            headers: { "Content-Type": "text/html; charset=utf-8" },
+            headers: htmlHeaders(),
         });
     }
 
