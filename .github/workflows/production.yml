@@ -274,6 +274,7 @@ jobs:
 
       - name: Commit and Push Changes (Robust Version)
         if: env.DB_AVAILABLE != 'false'
+        continue-on-error: true
         run: |
           git add .
           if git diff --staged --quiet; then
