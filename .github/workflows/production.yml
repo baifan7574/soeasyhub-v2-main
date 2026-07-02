@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - master
-  schedule:
-    - cron: '0 */2 * * *'  # Run every 2 hours
   workflow_dispatch:
     inputs:
       task_to_run:
@@ -19,6 +17,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: soeasyhub-production
+  cancel-in-progress: true
 
 jobs:
   produce-assets:
@@ -83,26 +85,45 @@ jobs:
           cd ${{ env.WORKING_DIR }}
           python - <<'PY'
           import os
+          import requests
           import socket
           from urllib.parse import urlparse
 
           url = os.environ.get("SUPABASE_URL", "").strip()
+          key = os.environ.get("SUPABASE_KEY", "").strip()
           host = urlparse(url).hostname if url else None
-          if not host:
+          if not host or not key:
               print("DB_AVAILABLE=false")
               open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
               raise SystemExit(0)
 
           try:
               socket.gethostbyname(host)
-              print("DB_AVAILABLE=true")
-              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=true\n")
           except OSError as exc:
               print(f"DB_AVAILABLE=false: {host} cannot be resolved: {exc}")
+              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
+              raise SystemExit(0)
+
+          try:
+              response = requests.get(
+                  f"{url}/rest/v1/grich_keywords_pool?select=id&limit=1",
+                  headers={"apikey": key, "Authorization": f"Bearer {key}"},
+                  timeout=20,
+              )
+              if response.status_code == 402:
+                  print("DB_AVAILABLE=false: Supabase project is quota-restricted.")
+                  open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
+                  raise SystemExit(0)
+              response.raise_for_status()
+              print("DB_AVAILABLE=true")
+              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=true\n")
+          except Exception as exc:
+              print(f"DB_AVAILABLE=false: Supabase preflight failed: {exc}")
               open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
           PY
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
 
       - name: Test Configuration
         if: env.DB_AVAILABLE != 'false'
@@ -198,26 +219,45 @@ jobs:
           cd ${{ env.WORKING_DIR }}
           python - <<'PY'
           import os
+          import requests
           import socket
           from urllib.parse import urlparse
 
           url = os.environ.get("SUPABASE_URL", "").strip()
+          key = os.environ.get("SUPABASE_KEY", "").strip()
           host = urlparse(url).hostname if url else None
-          if not host:
+          if not host or not key:
               print("DB_AVAILABLE=false")
               open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
               raise SystemExit(0)
 
           try:
               socket.gethostbyname(host)
-              print("DB_AVAILABLE=true")
-              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=true\n")
           except OSError as exc:
               print(f"DB_AVAILABLE=false: {host} cannot be resolved: {exc}")
+              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
+              raise SystemExit(0)
+
+          try:
+              response = requests.get(
+                  f"{url}/rest/v1/grich_keywords_pool?select=id&limit=1",
+                  headers={"apikey": key, "Authorization": f"Bearer {key}"},
+                  timeout=20,
+              )
+              if response.status_code == 402:
+                  print("DB_AVAILABLE=false: Supabase project is quota-restricted.")
+                  open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
+                  raise SystemExit(0)
+              response.raise_for_status()
+              print("DB_AVAILABLE=true")
+              open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=true\n")
+          except Exception as exc:
+              print(f"DB_AVAILABLE=false: Supabase preflight failed: {exc}")
               open(os.environ["GITHUB_ENV"], "a").write("DB_AVAILABLE=false\n")
           PY
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
 
       - name: Phase 3 Matrix Refiner
         if: env.DB_AVAILABLE != 'false'
