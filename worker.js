@@ -1036,6 +1036,7 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
             <div class="nav-links">
                 <a href="/">Home</a>
                 <a href="/about">About Us</a>
+                <a href="/packet">Compliance Packet</a>
                 <a href="/contact">Contact</a>
             </div>
         </div>
@@ -1111,6 +1112,10 @@ function htmlHeaders(extra = {}) {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",
     "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Content-Security-Policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; upgrade-insecure-requests",
     ...extra
   };
 }
@@ -1120,8 +1125,20 @@ function xmlHeaders(extra = {}) {
     "Content-Type": "application/xml; charset=utf-8",
     "Cache-Control": "public, max-age=900, stale-while-revalidate=3600",
     "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
     ...extra
   };
+}
+
+function temporarilyUnavailableHeaders(kind, isXml = false) {
+  const baseHeaders = isXml ? xmlHeaders : htmlHeaders;
+  return baseHeaders({
+    "Cache-Control": "no-store, max-age=0",
+    "Retry-After": "900",
+    "X-SoEasyHub-Fallback": kind,
+    "X-Robots-Tag": "noindex, nofollow, noarchive"
+  });
 }
 
 function finalizeHtml(html) {
@@ -1137,6 +1154,167 @@ function finalizeHtml(html) {
     .replace(/閳\?[\s\S]{0,20}?/g, " ");
 }
 
+const PAYHIP_PRODUCT_URL = "https://payhip.com/b/qoGLF";
+
+// Commercial focus mode: only pages that match the current Texas nursing
+// packet and have enough substantive content are promoted from the homepage
+// and included in the sitemap. Older archive pages remain reachable by URL.
+const FOCUSED_TEXAS_NURSING_SLUGS = [
+  "texas-nursing-license-reciprocity-states",
+  "does-a-texas-nursing-license-transfer-from-state-to-state",
+  "what-states-can-i-work-in-with-a-texas-nursing-license",
+  "nursing-license-requirements-texas",
+  "nursing-license-endorsement-to-texas",
+  "nursing-license-texas-renewal",
+  "nursing-license-renewal-requirements-texas"
+];
+
+function focusedArticleEndpoint(selectFields) {
+  return `grich_keywords_pool?select=${selectFields}&final_article=not.is.null&slug=in.(${FOCUSED_TEXAS_NURSING_SLUGS.join(",")})&order=last_mined_at.desc&limit=${FOCUSED_TEXAS_NURSING_SLUGS.length}`;
+}
+
+function normalizeTrackingSource(value) {
+  return String(value || "unknown")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "unknown";
+}
+
+function packetRedirectPath(source) {
+  return `/go/packet?source=${encodeURIComponent(normalizeTrackingSource(source))}`;
+}
+
+function packetOfferCss() {
+  return `
+    .packet-offer { max-width: 900px; margin: 32px auto; padding: 28px; background: #fff7ed; border: 2px solid #fed7aa; border-radius: 16px; box-shadow: 0 8px 24px rgba(124,45,18,.08); }
+    .packet-offer .packet-kicker { color: #c2410c; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; margin-bottom: 8px; }
+    .packet-offer h2 { color: #7c2d12; margin: 0 0 10px; font-size: 1.65rem; }
+    .packet-offer p { color: #7c2d12; margin-bottom: 14px; }
+    .packet-offer ul { margin: 12px 0 20px 22px; color: #7c2d12; }
+    .packet-offer li { margin-bottom: 6px; }
+    .packet-offer .packet-button { display: inline-block; background: #ea580c; color: #fff !important; padding: 14px 22px; border-radius: 9px; text-decoration: none; font-weight: 800; box-shadow: 0 4px 12px rgba(234,88,12,.22); }
+    .packet-offer .packet-button:hover { background: #c2410c; }
+    .packet-offer .packet-footnote { color: #9a3412; font-size: .88rem; margin: 12px 0 0; }
+    .packet-home-wrap { padding: 0 20px; background: var(--bg); }
+  `;
+}
+
+function packetOfferBlockLegacy(source, compact = false) {
+  const safeSource = normalizeTrackingSource(source);
+  const href = escapeHtml(packetRedirectPath(safeSource));
+  return `
+    <section class="packet-offer${compact ? " packet-offer-compact" : ""}" data-offer="compliance-packet">
+      <div class="packet-kicker">Focused paid packet</div>
+      <h2>Moving an RN, LVN, or LPN license to Texas?</h2>
+      <p>The $29.99 Texas Nursing License Reciprocity Prep Packet turns a confusing endorsement or compact-license check into a step-by-step preparation worksheet.</p>
+      <ul>
+        <li>Choose the right route before paying a non-refundable fee</li>
+        <li>Track education, license verification, fingerprints, and portal items</li>
+        <li>Save official sources, receipts, missing items, and follow-up dates</li>
+      </ul>
+      <a class="packet-button" href="${href}" data-cta="compliance-packet" data-source="${escapeHtml(safeSource)}" target="_blank" rel="noopener sponsored">See what is inside — $29.99</a>
+      <p class="packet-footnote">Digital worksheet through Payhip. Educational material only; official Texas Board instructions control.</p>
+    </section>`;
+}
+
+// Focused first-offer test: the database shows nursing reciprocity as the strongest high-intent cluster.
+function packetOfferBlock(source, compact = false) {
+  const safeSource = normalizeTrackingSource(source);
+  const href = escapeHtml(packetRedirectPath(safeSource));
+  return `
+    <section class="packet-offer${compact ? " packet-offer-compact" : ""}" data-offer="texas-nursing-packet">
+      <div class="packet-kicker">Focused paid packet</div>
+      <h2>Moving an RN, LVN, or LPN license to Texas?</h2>
+      <p>The $29.99 Texas Nursing License Reciprocity Prep Packet turns the endorsement or compact-license check into a step-by-step preparation worksheet.</p>
+      <ul>
+        <li>Choose the right route before paying a non-refundable fee</li>
+        <li>Track education, license verification, fingerprints, and portal items</li>
+        <li>Save official sources, receipts, missing items, and follow-up dates</li>
+      </ul>
+      <a class="packet-button" href="${href}" data-cta="texas-nursing-packet" data-source="${escapeHtml(safeSource)}" target="_blank" rel="noopener sponsored">Get the Texas nursing packet - $29.99</a>
+      <p class="packet-footnote">Digital worksheet through Payhip. Educational material only; official Texas Board instructions control.</p>
+    </section>`;
+}
+
+function isPriorityFallbackSlug(slug) {
+  const value = String(slug || "").toLowerCase();
+  const outOfScope = /(^|[-])(uk|australia|nsw|victoria|queensland|india|malta|germany|canada|jamaica|spain)([-]|$)|andhra|gujarat|karnataka|west-bengal|south-africa|saskatchewan/;
+  const noise = /electrical-board-(gland|glue|green|shoes|spelling|spray|spacers|sheet-price)|electrician-(dunnington|duxford|dymchurch|ham|heathrow|gatwick)/;
+  const intent = /(license|licence|reciprocity|renewal|cna|rn|lvn|nurse|electrician|cpa|teacher)/;
+  return intent.test(value) && !outOfScope.test(value) && !noise.test(value);
+}
+
+function isTexasNursingTopic(slug, keyword) {
+  const value = `${slug || ""} ${keyword || ""}`.toLowerCase();
+  return /texas/.test(value) && /\b(rn|lvn|lpn|nurs(?:e|ing))\b/.test(value);
+}
+
+function renderPacketSalesPage() {
+  const pageCss = `
+    .packet-page { max-width: 1000px; margin: 42px auto 70px; padding: 0 20px; }
+    .packet-hero { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color: #fff; border-radius: 20px; padding: 58px 46px; box-shadow: 0 18px 40px rgba(15,23,42,.18); }
+    .packet-hero .eyebrow { color: #bfdbfe; font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .packet-hero h1 { font-size: 3rem; line-height: 1.15; margin: 14px 0 18px; }
+    .packet-hero p { max-width: 720px; color: #dbeafe; font-size: 1.12rem; margin-bottom: 24px; }
+    .packet-button-large { display: inline-block; background: #f97316; color: #fff; padding: 16px 24px; border-radius: 10px; text-decoration: none; font-weight: 800; box-shadow: 0 5px 16px rgba(249,115,22,.3); }
+    .packet-button-large:hover { background: #ea580c; }
+    .packet-hero small { display: block; margin-top: 14px; color: #bfdbfe; }
+    .packet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin: 28px 0; }
+    .packet-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 30px; }
+    .packet-card h2 { color: var(--secondary); margin-bottom: 14px; }
+    .packet-card li { margin: 10px 0 0 20px; }
+    .packet-guardrail { background: #eff6ff; border-left: 4px solid #2563eb; border-radius: 8px; padding: 22px; color: #1e3a8a; }
+    .packet-guardrail h2 { margin-bottom: 10px; }
+    @media (max-width: 700px) { .packet-hero { padding: 38px 24px; } .packet-hero h1 { font-size: 2.25rem; } .packet-grid { grid-template-columns: 1fr; } }
+  `;
+  const content = `
+    <main class="packet-page">
+      <section class="packet-hero">
+        <div class="eyebrow">SoEasyHub focused digital product</div>
+        <h1>Prepare your Texas nursing license reciprocity application</h1>
+        <p>Moving an RN, LVN, or LPN license can involve endorsement, compact-state rules, license verification, fingerprints, education records, and portal follow-up. This packet gives you one place to organize the work before you pay or submit.</p>
+        <a class="packet-button-large" href="${escapeHtml(packetRedirectPath("packet-landing"))}" data-cta="compliance-packet" data-source="packet-landing" target="_blank" rel="noopener sponsored">Get the Compliance Packet — $29.99</a>
+        <small>Secure checkout and digital delivery through Payhip. Version checked August 9, 2026.</small>
+      </section>
+
+      <section class="packet-grid">
+        <div class="packet-card">
+          <h2>What it helps you decide</h2>
+          <ul>
+            <li>Endorsement, renewal, reactivation, or compact-license route</li>
+            <li>RN/LVN and U.S.-educated/internationally-educated path</li>
+            <li>Which verification, fingerprint, education, and portal items to check</li>
+            <li>What to confirm before a non-refundable payment</li>
+          </ul>
+        </div>
+        <div class="packet-card">
+          <h2>What you receive</h2>
+          <ul>
+            <li>A 41-item plain-English preparation checklist</li>
+            <li>A license-verification and document log</li>
+            <li>A payment-safety and submission-day checklist</li>
+            <li>A missing-item and follow-up tracker</li>
+            <li>Official-source links and a dated recheck field</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="packet-guardrail">
+        <h2>Read this before buying</h2>
+        <p>This is an educational research worksheet. It is not legal representation, an official government form, personalized nursing or legal advice, or a promise that an agency will approve an application. State and compact rules change, so always confirm the final requirements with the official agency.</p>
+        <p>If you are not checking a Texas nursing-license move or endorsement, this first focused packet may not fit your situation. Start with the free guide or <a href="/contact">contact us before purchasing</a>.</p>
+      </section>
+    </main>`;
+  return renderHtml(
+    "Texas Nursing License Reciprocity Packet | SoEasyHub",
+    "A practical preparation worksheet for checking a Texas RN, LVN, or LPN endorsement or compact-license route.",
+    "https://soeasyhub.com/packet",
+    pageCss,
+    content
+  );
+}
+
 function renderHtml(title, description, canonicalUrl, pageCss, content, scripts = "") {
   return HTML_TEMPLATE
     .replace('{{TITLE}}', title)
@@ -1147,19 +1325,19 @@ function renderHtml(title, description, canonicalUrl, pageCss, content, scripts 
     .replace('{{SCRIPTS}}', scripts || '');
 }
 
+function renderFocusedPacketSalesPage() {
+  return renderPacketSalesPage()
+    .replace(/Get the Compliance Packet[^<]*29.99/, "Get the Texas nursing packet - $29.99")
+    .replace(/data-cta="compliance-packet"/g, 'data-cta="texas-nursing-packet"');
+}
+
 function fallbackPaymentBlock(slug) {
-  const productParam = encodeURIComponent(slug || "compliance-packet");
-  return `
-    <div class="fallback-paywall">
-      <h2>Need the Fast-Track Compliance Packet?</h2>
-      <p>The free guide gives you the public overview. The paid packet is designed as a practical checklist for reviewing fees, forms, filing steps, and common mistakes before you submit anything.</p>
-      <a href="https://payhip.com/b/qoGLF?product_id=${productParam}" target="_blank" rel="noopener sponsored">Get the Compliance Packet ($29.99)</a>
-      <p class="small">Secure checkout via Payhip. Educational material only. This is not legal advice.</p>
-    </div>`;
+  return `<p class="status-note">This page is temporarily unavailable. Please return after the scheduled refresh rather than relying on an incomplete guide.</p>`;
 }
 
 function renderFallbackHome(reason = "") {
   const pageCss = `
+    ${packetOfferCss()}
     .fallback-hero { padding: 90px 20px 60px; background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); text-align: center; border-bottom: 1px solid var(--border); }
     .fallback-hero h1 { color: var(--secondary); font-size: 3rem; line-height: 1.15; margin-bottom: 18px; font-weight: 800; }
     .fallback-hero p { max-width: 760px; margin: 0 auto 26px; color: var(--text-muted); font-size: 1.15rem; }
@@ -1173,7 +1351,9 @@ function renderFallbackHome(reason = "") {
     .fallback-card p { color: var(--text-muted); }
     .status-note { max-width: 900px; margin: 20px auto; color: #64748b; font-size: .9rem; text-align: center; }
   `;
-  const cards = FALLBACK_SITEMAP_SLUGS.map(slug => {
+  const prioritySlugs = FALLBACK_SITEMAP_SLUGS.filter(isPriorityFallbackSlug).slice(0, 36);
+  const visibleSlugs = prioritySlugs.length ? prioritySlugs : FALLBACK_SITEMAP_SLUGS.slice(0, 36);
+  const cards = visibleSlugs.map(slug => {
     const title = toTitleFromSlug(slug);
     return `
     <a class="fallback-card audit-card" href="/p/${slug}">
@@ -1188,10 +1368,10 @@ function renderFallbackHome(reason = "") {
       <p>Clear, practical checklists for licensing, renewal, reciprocity, and business compliance. Start with a free guide, then unlock a paid packet when you need a tighter filing checklist.</p>
       ${fallbackPaymentBlock("general-compliance-packet")}
       <div class="fallback-search">
-        <input id="archiveSearch" type="search" placeholder="Search ${FALLBACK_SITEMAP_SLUGS.length} compliance guides...">
+        <input id="archiveSearch" type="search" placeholder="Search ${visibleSlugs.length} priority compliance guides...">
       </div>
     </section>
-    <p class="fallback-count">Local archive mode: showing ${FALLBACK_SITEMAP_SLUGS.length} saved compliance guide URLs while the live database is unavailable.</p>
+    <p class="fallback-count">Live content is temporarily unavailable. Showing ${visibleSlugs.length} focused starting points while the archive is being repaired.</p>
     <div class="fallback-grid">${cards}</div>
     ${reason ? `<p class="status-note">Live database content is temporarily unavailable, so this stable fallback page is being served.</p>` : ""}`;
   const scripts = `
@@ -1220,6 +1400,7 @@ function renderFallbackHome(reason = "") {
 function renderFallbackArticle(slug, reason = "") {
   const title = toTitleFromSlug(slug);
   const pageCss = `
+    ${packetOfferCss()}
     .fallback-article { max-width: 900px; margin: 48px auto; padding: 0 20px; }
     .fallback-panel { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 42px; box-shadow: 0 4px 12px rgba(15,23,42,.04); }
     .fallback-panel h1 { color: var(--secondary); font-size: 2.5rem; line-height: 1.15; margin-bottom: 18px; }
@@ -1267,14 +1448,13 @@ function renderFallbackArticle(slug, reason = "") {
 }
 
 function renderFallbackSitemap() {
-  const slugs = FALLBACK_SITEMAP_SLUGS;
   const urls = [
     "https://soeasyhub.com/",
+    "https://soeasyhub.com/packet",
     "https://soeasyhub.com/about",
     "https://soeasyhub.com/contact",
     "https://soeasyhub.com/privacy",
-    "https://soeasyhub.com/terms",
-    ...slugs.map(slug => `https://soeasyhub.com/p/${slug}`)
+    "https://soeasyhub.com/terms"
   ];
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -1287,6 +1467,12 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
+
+    // Keep one public hostname so links and search signals are never split.
+    if (url.hostname === "www.soeasyhub.com") {
+      url.hostname = "soeasyhub.com";
+      return Response.redirect(url.toString(), 301);
+    }
 
     // Supabase Config (from Environment Variables)
     const SUPABASE_URL = env.SUPABASE_URL;
@@ -1328,9 +1514,36 @@ export default {
 
     if (path === "/robots.txt") {
       return new Response(
-        "User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: https://soeasyhub.com/sitemap.xml\n",
+        "User-agent: *\nAllow: /\nAllow: /packet\nDisallow: /api/\nDisallow: /go/\nSitemap: https://soeasyhub.com/sitemap.xml\n",
         { headers: { "Content-Type": "text/plain; charset=utf-8" } }
       );
+    }
+
+    // === ROUTE 0B: TRACKED PRODUCT REDIRECT ===
+    // Keep one fixed destination so every purchase click is visible in edge logs
+    // without creating an open redirect or exposing product-specific query hacks.
+    if (path === "/go/packet") {
+      const source = normalizeTrackingSource(url.searchParams.get("source"));
+      const destination = new URL(PAYHIP_PRODUCT_URL);
+      destination.searchParams.set("utm_source", "soeasyhub");
+      destination.searchParams.set("utm_medium", "content");
+      destination.searchParams.set("utm_campaign", "compliance_packet");
+      destination.searchParams.set("utm_content", source);
+      return new Response(null, {
+        status: 302,
+        headers: {
+          "Location": destination.toString(),
+          "Cache-Control": "no-store",
+          "Referrer-Policy": "strict-origin-when-cross-origin"
+        }
+      });
+    }
+
+    // === ROUTE 0C: PRODUCT SALES PAGE ===
+    if (path === "/packet") {
+      return new Response(renderFocusedPacketSalesPage(), {
+        headers: htmlHeaders({ "X-SoEasyHub-Offer": "compliance-packet" })
+      });
     }
 
     // === ROUTE 1: HOME PAGE (Grid) ===
@@ -1339,7 +1552,7 @@ export default {
         // Query: Get top 100 articles (where final_article is not null)
         // Fields: id, slug, keyword, category, last_mined_at
         const data = await supabaseFetch(
-          `grich_keywords_pool?select=id,slug,keyword,category,last_mined_at&final_article=not.is.null&order=last_mined_at.desc&limit=300`
+          focusedArticleEndpoint("id,slug,keyword,category,last_mined_at")
         );
 
         let gridHtml = "";
@@ -1348,6 +1561,7 @@ export default {
             gridHtml = `<div style="text-align:center; padding: 40px;">No audit reports published yet.</div>`;
         } else {
             const pageCss = `
+            ${packetOfferCss()}
             .hero {
                 text-align: center;
                 padding: 100px 20px 80px;
@@ -1497,6 +1711,10 @@ export default {
                 </div>
             </div>
 
+            <div class="packet-home-wrap">
+                ${packetOfferBlock("homepage")}
+            </div>
+
             <div class="founder-section">
                 <div class="founder-inner">
                     <div class="founder-img">B</div>
@@ -1570,7 +1788,8 @@ export default {
         }
       } catch (err) {
         return new Response(renderFallbackHome(err.message), {
-          headers: htmlHeaders({ "X-SoEasyHub-Fallback": "home" }),
+          status: 503,
+          headers: temporarilyUnavailableHeaders("home"),
         });
       }
     }
@@ -1598,6 +1817,8 @@ export default {
         let content = article.final_article || "<p>Content pending...</p>";
         
         content = sanitizeArticleHtml(content);
+        // The page shell already provides the single document H1.
+        content = content.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi, '');
 
         // Remove old monetization boxes completely
         content = content.replace(/<div class="monetization-box"[\s\S]*?<\/div>/gi, '')
@@ -1610,30 +1831,22 @@ export default {
         content = content.replace(/<h[234][^>]*>Explore Related Pathways<\/h[234]>[\s\S]*/gi, '');
         content = content.replace(/<h[234][^>]*>Related Pathways<\/h[234]>[\s\S]*/gi, '');
 
-        // Generate the Monetization Button (Restored!)
-        let monetizationBlock = `
-        <div style="text-align: center; margin: 50px 0; background: #fff7ed; padding: 30px; border-radius: 12px; border: 2px dashed #f97316;">
-            <h3 style="color: #ea580c; margin-top: 0; margin-bottom: 15px; font-size: 1.4rem;">Ready to Fast-Track Your Compliance?</h3>
-            <a href="https://payhip.com/b/qoGLF?product_id=${slug}" target="_blank" rel="noopener sponsored" style="display: inline-block; background: #f97316; color: #ffffff !important; font-weight: 800; padding: 18px 36px; border-radius: 8px; text-decoration: none; font-size: 1.15rem; box-shadow: 0 4px 15px rgba(249, 115, 22, 0.4); transition: transform 0.2s;">
-              GET THE INDEPENDENT COMPLIANCE PACKET ($29.99)
-            </a>
-            <p style="font-size: 0.95rem; margin-top: 15px; margin-bottom: 0; color: #64748b;">Secure Payment via Stripe/PayPal 鈥?Instant PDF Download</p>
-        </div>`;
-        monetizationBlock = monetizationBlock.replace(
-          /Secure Payment via Stripe\/PayPal[\s\S]*?Instant PDF Download/,
-          "Secure payment via Stripe/PayPal. Instant PDF download."
-        );
+        // The paid packet is Texas-nursing specific. Showing it on unrelated
+        // guides reduces buyer trust and produces misleading conversion data.
+        const monetizationBlock = isTexasNursingTopic(slug, article.keyword)
+          ? packetOfferBlock(`${slug}-article`)
+          : '';
 
         // Inject the payment button into the content (middle and end)
         const paragraphs = content.split('</p>');
-        if (paragraphs.length > 5) {
+        if (monetizationBlock && paragraphs.length > 5) {
             const injectIndex = Math.floor(paragraphs.length * 0.4);
             paragraphs.splice(injectIndex, 0, monetizationBlock);
             content = paragraphs.join('</p>');
         }
         
         // Always append a payment button at the very bottom
-        content += monetizationBlock;
+        if (monetizationBlock) content += monetizationBlock;
 
         // Generate the "Teacher's Note" block at the start
         const stateMatch = title.match(/(California|Texas|Florida|New York|Illinois|Ohio|Georgia|North Carolina|Michigan|New Jersey|Virginia|Washington|Arizona|Massachusetts|Tennessee|Indiana|Missouri|Maryland|Wisconsin|Colorado|Minnesota|South Carolina|Alabama|Louisiana|Kentucky|Oregon|Oklahoma|Connecticut|Utah|Iowa|Nevada|Arkansas|Mississippi|Kansas|New Mexico|Nebraska|Idaho|West Virginia|Hawaii|New Hampshire|Maine|Rhode Island|Montana|Delaware|South Dakota|North Dakota|Alaska|Vermont|Wyoming)/i);
@@ -1669,6 +1882,7 @@ export default {
         </div>`;
 
         const pageCss = `
+        ${packetOfferCss()}
         .article-container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
         .article-content { background: var(--card-bg); padding: 50px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
         .article-category { color: var(--primary); font-weight: 700; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 15px; }
@@ -1742,7 +1956,8 @@ export default {
 
       } catch (err) {
          return new Response(renderFallbackArticle(slug, err.message), {
-           headers: htmlHeaders({ "X-SoEasyHub-Fallback": "article" }),
+           status: 503,
+           headers: temporarilyUnavailableHeaders("article"),
          });
       }
     }
@@ -1751,7 +1966,7 @@ export default {
     if (path === "/sitemap.xml") {
         try {
             const data = await supabaseFetch(
-                `grich_keywords_pool?select=slug,last_mined_at&final_article=not.is.null&limit=1000`
+                focusedArticleEndpoint("slug,last_mined_at")
             );
             
             let xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -1760,6 +1975,11 @@ export default {
                     <loc>https://soeasyhub.com/</loc>
                     <changefreq>daily</changefreq>
                     <priority>1.0</priority>
+                </url>
+                <url>
+                    <loc>https://soeasyhub.com/packet</loc>
+                    <changefreq>weekly</changefreq>
+                    <priority>0.9</priority>
                 </url>
                 <url>
                     <loc>https://soeasyhub.com/about</loc>
@@ -1800,7 +2020,8 @@ export default {
 
         } catch (err) {
             return new Response(renderFallbackSitemap(), {
-                headers: xmlHeaders({ "X-SoEasyHub-Fallback": "sitemap" }),
+                status: 503,
+                headers: temporarilyUnavailableHeaders("sitemap", true),
             });
         }
     }

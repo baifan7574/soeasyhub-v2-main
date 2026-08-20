@@ -1,9 +1,6 @@
 name: Matrix Factory & GSC Tools
 
 on:
-  push:
-    branches:
-      - master
   workflow_dispatch:
     inputs:
       task_to_run:
@@ -346,8 +343,8 @@ jobs:
 
       - name: Upload Secrets to Worker
         run: |
-          echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL || true
-          echo "${{ secrets.SUPABASE_KEY }}" | npx wrangler secret put SUPABASE_KEY || true
+          echo "${{ secrets.SUPABASE_URL }}" | npx wrangler secret put SUPABASE_URL
+          echo "${{ secrets.SUPABASE_KEY }}" | npx wrangler secret put SUPABASE_KEY
         env:
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}

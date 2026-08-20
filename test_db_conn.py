@@ -3,7 +3,10 @@ import requests
 import sys
 
 SB = os.environ.get("SUPABASE_URL", "https://nbfzhxgkfljeuoncujum.supabase.co")
-KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iZnpoeGdrZmxqZXVvbmN1anVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAyNTk2NjQsImV4cCI6MjA1NTgzNTY2NH0.pq7kCx1-vcC6SHd4qm_kTVH8jU9DZ9p6vJfJXq5n5pU")
+KEY = os.environ.get("SUPABASE_KEY")
+
+if not KEY:
+    raise SystemExit("SUPABASE_KEY is not configured. Set it in the environment before running this private diagnostic.")
 headers = {
     'apikey': KEY,
     'Authorization': f'Bearer {KEY}',

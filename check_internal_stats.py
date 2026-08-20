@@ -4,9 +4,9 @@ import codecs
 import requests
 
 # --- Configuration ---
-# Hardcoding credentials from .agent/Token..txt for reliability in this script
-SUPABASE_URL = "https://nbfzhxgkfljeuoncujum.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iZnpoeGdrZmxqZXVvbmN1anVtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDU0Mjg3MSwiZXhwIjoyMDgwMTE4ODcxfQ.44pmI9dqwsL-5lcRd0izq5RoKfVH8wr0KmSVLzBrfp8"
+# Credentials must come from the environment. Never store a database key in source.
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://nbfzhxgkfljeuoncujum.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 HEADERS = {
     "apikey": SUPABASE_KEY, 
@@ -19,6 +19,10 @@ DB_TABLE = "grich_keywords_pool"
 def main():
     # Ensure UTF-8 output
     sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+
+    if not SUPABASE_KEY:
+        print("SUPABASE_KEY is not configured. Set it in the environment before running this private diagnostic.")
+        return 2
 
     print("=== Internal Content / Indexing Status (Supabase) ===")
     print(f"Checking database: {DB_TABLE}")
