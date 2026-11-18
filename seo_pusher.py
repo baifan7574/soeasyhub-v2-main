@@ -25,11 +25,7 @@ import xml.etree.ElementTree as ET
 SITE_ORIGIN = "https://soeasyhub.com"
 SITEMAP_URL = SITE_ORIGIN + "/sitemap.xml"
 ROBOTS_URL = SITE_ORIGIN + "/robots.txt"
-CORE_ARTICLE_URLS = (
-    SITE_ORIGIN + "/p/nursing-license-endorsement-to-texas",
-    SITE_ORIGIN + "/p/texas-nursing-license-reciprocity-states",
-    SITE_ORIGIN + "/p/nursing-license-requirements-texas",
-)
+REVIEWED_URLS = (SITE_ORIGIN + "/",)
 # Public ownership-verification value, already served by the live Worker.
 INDEXNOW_KEY = "822834cd8b83498a90e4fd5ef715fa14"
 KEY_URL = SITE_ORIGIN + "/" + INDEXNOW_KEY + ".txt"
@@ -104,7 +100,7 @@ def _require_200(response, label):
 
 
 def get_latest_urls(fetch=fetch_http):
-    """Read the live sitemap; only the three explicitly reviewed guides qualify.
+    """Read the live sitemap; only explicitly reviewed pages qualify.
 
     The historical function name is kept for callers. This no longer means
     arbitrary latest database records. Empty/missing core entries are an error.
@@ -130,10 +126,10 @@ def get_latest_urls(fetch=fetch_http):
         if (parts.scheme != "https" or parts.netloc != "soeasyhub.com"
                 or parts.query or parts.fragment or not parts.path.startswith("/")):
             raise SeoError("invalid_sitemap_url", "Sitemap contains a noncanonical or foreign URL.")
-        if url in CORE_ARTICLE_URLS:
+        if url in REVIEWED_URLS:
             urls.add(url)
-    if urls != set(CORE_ARTICLE_URLS):
-        raise SeoError("scope_mismatch", "Sitemap is missing one or more reviewed core guides.")
+    if urls != set(REVIEWED_URLS):
+        raise SeoError("scope_mismatch", "Sitemap is missing one or more reviewed pages.")
     return sorted(urls)
 
 
@@ -151,7 +147,7 @@ def validate_robots(urls, fetch=fetch_http):
     if SITEMAP_URL not in (robots.site_maps() or []):
         raise SeoError("invalid_robots", "Robots file does not advertise the canonical live sitemap.")
     # Conservative guard: do not resolve conflicting Allow rules or bot groups.
-    # Any Disallow that could cover a core guide requires a human robots review.
+    # Any Disallow that could cover a page requires a human robots review.
     # This also handles '*' and terminal '$', unlike RobotFileParser.can_fetch.
     for line in text.splitlines():
         directive = line.split("#", 1)[0].strip()
@@ -166,7 +162,7 @@ def validate_robots(urls, fetch=fetch_http):
             pattern = pattern[:-1]
         expression = "^" + re.escape(pattern).replace(r"\*", ".*") + ("$" if anchored else "")
         if any(re.search(expression, urlsplit(url).path) for url in urls):
-            raise SeoError("robots_blocked", "A robots Disallow could block a core guide; review the crawl rules.")
+            raise SeoError("robots_blocked", "A robots Disallow could block a page; review the crawl rules.")
 
 
 class PageMetadata(HTMLParser):
@@ -199,27 +195,30 @@ class PageMetadata(HTMLParser):
 def validate_pages(urls, fetch=fetch_http):
     fingerprints = {}
     for url in urls:
-        if url not in CORE_ARTICLE_URLS:
+        if url not in REVIEWED_URLS:
             raise SeoError("scope_mismatch", "Attempted to check an unreviewed article URL.")
         response = _request(fetch, url)
-        _require_200(response, "Core guide")
+        _require_200(response, "Page")
         headers = _headers(response)
         if headers.get("content-type", "").split(";", 1)[0].strip().lower() != "text/html":
-            raise SeoError("invalid_page", "Core guide did not return HTML.")
+            raise SeoError("invalid_page", "Page did not return HTML.")
         if re.search(r"\b(noindex|none)\b", headers.get("x-robots-tag", "").lower()):
-            raise SeoError("noindex", "Core guide has an indexing block in HTTP headers.")
+            raise SeoError("noindex", "Page has an indexing block in HTTP headers.")
         try:
             html = response.body.decode("utf-8")
         except UnicodeDecodeError:
-            raise SeoError("invalid_page", "Core guide HTML is not UTF-8.") from None
+            raise SeoError("invalid_page", "Page HTML is not UTF-8.") from None
+        if url == SITE_ORIGIN + "/" and not all(marker in html.lower() for marker in
+                ("northbeam studio", "<video", 'id="services"', "mailto:baifan7575@gmail.com")):
+            raise SeoError("wrong_homepage", "Missing studio identity, video, services or contact.")
         metadata = PageMetadata()
         metadata.feed(html)
         if metadata.noindex:
-            raise SeoError("noindex", "Core guide has an indexing block in HTML metadata.")
+            raise SeoError("noindex", "Page has an indexing block in HTML metadata.")
         if metadata.canonicals != [url]:
-            raise SeoError("canonical_mismatch", "Core guide canonical must match its live /p/ URL exactly.")
+            raise SeoError("canonical_mismatch", "Page canonical must match its live URL exactly.")
         if not "".join(metadata.h1_text).strip() or "{{" in html:
-            raise SeoError("invalid_page", "Core guide is empty or contains unresolved placeholders.")
+            raise SeoError("invalid_page", "Page is empty or contains unresolved placeholders.")
         fingerprints[url] = hashlib.sha256(response.body).hexdigest()
     return fingerprints
 
@@ -235,7 +234,7 @@ def load_state(path):
         if not isinstance(fingerprints, dict):
             raise ValueError()
         for url, digest in fingerprints.items():
-            if (url not in CORE_ARTICLE_URLS or not isinstance(digest, str)
+            if (url not in REVIEWED_URLS or not isinstance(digest, str)
                     or re.fullmatch(r"[0-9a-f]{64}", digest) is None):
                 raise ValueError()
         return fingerprints
@@ -257,7 +256,7 @@ def _write_json(path, document):
 
 def push_to_bing(urls, fetch=fetch_http):
     """Submit only after validating the existing public ownership key."""
-    if not urls or any(url not in CORE_ARTICLE_URLS for url in urls):
+    if not urls or any(url not in REVIEWED_URLS for url in urls):
         raise SeoError("scope_mismatch", "IndexNow requires reviewed article URLs.")
     verification = _request(fetch, KEY_URL)
     _require_200(verification, "IndexNow verification file")
@@ -279,7 +278,7 @@ def run(*, submit, state_file, report_file, fetch=fetch_http):
                           "error": "State and report files must use different paths."}), file=sys.stderr)
         return 1
     report = {"checked_at": datetime.now(timezone.utc).isoformat(),
-              "source": SITEMAP_URL, "scope": "three_reviewed_texas_nursing_guides",
+              "source": SITEMAP_URL, "scope": "northbeam_video_homepage",
               "mode": "submit_indexnow" if submit else "read_only",
               "status": "error", "google_indexing_api": "not_used_for_articles"}
     phase = "state_read"

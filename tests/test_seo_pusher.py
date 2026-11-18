@@ -99,7 +99,30 @@ class FakeFetch:
         return [call for call in self.calls if call[1] == "POST"]
 
 
-class SitemapTests(unittest.TestCase):
+class VideoHomepageTests(unittest.TestCase):
+    def test_only_video_homepage_can_be_submitted(self):
+        url = "https://soeasyhub.com/"
+        self.assertEqual(seo.REVIEWED_URLS, (url,))
+        fetch = FakeFetch(urls=EXPECTED_URLS + (url,))
+        self.assertEqual(seo.get_latest_urls(fetch), [url])
+        fetch.responses[url] = response(page(url))
+        with self.assertRaisesRegex(seo.SeoError, "Missing studio"):
+            seo.validate_pages([url], fetch)
+        fetch.responses[url] = response(page(url, title="NorthBeam Studio",
+            body='<section id="services"><video></video><a href="mailto:baifan7575@gmail.com">Contact</a></section>'))
+        self.assertIn(url, seo.validate_pages([url], fetch))
+
+
+class MultiPageFixture(unittest.TestCase):
+    """Exercise general validation and transport with a synthetic multi-page scope."""
+    def setUpClass(cls):
+        super().setUpClass()
+        scope = patch.object(seo, "REVIEWED_URLS", EXPECTED_URLS)
+        scope.start()
+        cls.addClassCleanup(scope.stop)
+
+
+class SitemapTests(MultiPageFixture):
     def assert_source_error(self, fetch):
         with self.assertRaises(seo.SeoError) as caught:
             seo.get_latest_urls(fetch=fetch)
@@ -107,8 +130,8 @@ class SitemapTests(unittest.TestCase):
 
     def test_exact_reviewed_scope_and_published_path(self):
         self.assertEqual(seo.SITE_ORIGIN, "https://soeasyhub.com")
-        self.assertEqual(set(seo.CORE_ARTICLE_URLS), set(EXPECTED_URLS))
-        self.assertEqual(len(seo.CORE_ARTICLE_URLS), 3)
+        self.assertEqual(set(seo.REVIEWED_URLS), set(EXPECTED_URLS))
+        self.assertEqual(len(seo.REVIEWED_URLS), 3)
         self.assertEqual(seo.SITEMAP_URL, "https://soeasyhub.com/sitemap.xml")
 
     def test_source_is_live_sitemap_and_extra_urls_do_not_expand_scope(self):
@@ -173,7 +196,7 @@ class SitemapTests(unittest.TestCase):
                 self.assert_source_error(fetch)
 
 
-class HttpTransportTests(unittest.TestCase):
+class HttpTransportTests(MultiPageFixture):
     class NetworkResponse:
         def __init__(self, body):
             self.status = 200
@@ -280,7 +303,7 @@ class HttpTransportTests(unittest.TestCase):
                 self.assertEqual(caught.exception.code, "noindex")
 
 
-class RobotsTests(unittest.TestCase):
+class RobotsTests(MultiPageFixture):
     def assert_blocked(self, rules):
         document = f"{rules}\nSitemap: {seo.SITEMAP_URL}\n"
         fetch = FakeFetch()
@@ -372,7 +395,7 @@ class RobotsTests(unittest.TestCase):
                 seo.validate_robots(list(EXPECTED_URLS), fetch=fetch)
 
 
-class PageValidationTests(unittest.TestCase):
+class PageValidationTests(MultiPageFixture):
     def test_case_variant_robots_headers_cannot_hide_noindex_in_either_order(self):
         url = EXPECTED_URLS[0]
         pairs = (("X-Robots-Tag", "NOINDEX"), ("x-robots-tag", "index"))
@@ -461,7 +484,7 @@ class PageValidationTests(unittest.TestCase):
             seo.validate_pages(list(EXPECTED_URLS), fetch=fetch)
 
 
-class RunTests(unittest.TestCase):
+class RunTests(MultiPageFixture):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="soeasyhub-seo-test-")
         self.addCleanup(self.temp.cleanup)

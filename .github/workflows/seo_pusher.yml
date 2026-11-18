@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       submit_indexnow:
-        description: 'Notify IndexNow for changed, validated core guides'
+        description: 'Notify IndexNow for changed, validated video homepage'
         type: boolean
         default: false
 
@@ -56,8 +56,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .seo/state.json
-          key: seo-core-v1-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: seo-core-v1-
+          key: seo-video-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: seo-video-v1-
       - name: Check source and optionally notify IndexNow
         id: health
         env:
@@ -74,14 +74,14 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .seo/state.json
-          key: seo-core-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          key: seo-video-v1-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Confirm this run's state was saved
         id: ledger_check
         if: success() && (github.event_name == 'schedule' || inputs.submit_indexnow)
         uses: actions/cache/restore@v4
         with:
           path: .seo/state.json
-          key: seo-core-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          key: seo-video-v1-${{ github.run_id }}-${{ github.run_attempt }}
           lookup-only: true
           fail-on-cache-miss: true
       - name: Record state persistence result
