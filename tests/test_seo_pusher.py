@@ -115,6 +115,7 @@ class VideoHomepageTests(unittest.TestCase):
 
 class MultiPageFixture(unittest.TestCase):
     """Exercise general validation and transport with a synthetic multi-page scope."""
+    @classmethod
     def setUpClass(cls):
         super().setUpClass()
         scope = patch.object(seo, "REVIEWED_URLS", EXPECTED_URLS)
